@@ -1,0 +1,20 @@
+{
+  "launch_path": "index.html",
+  "default_locale": "en",
+  "activities": {
+    "dhis": {
+      "href": "*"
+    }
+  },
+  "appType": "APP",
+  "name": "GIS Dashboard",
+  "version": "1.0.0",
+  "description": "GHSA",
+  "developer": {
+    "name": "harsh",
+    "email": "harsh.atal@gmail.com"
+  },
+  "icons": {
+    "48": "images/marker-icon-blue.png"
+  }
+}
