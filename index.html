@@ -2,7 +2,7 @@
 <html lang="en" ng-app="excelImport">
   <head>
     <meta charset="UTF-8">
-    <title>Alerts</title>
+    <title>IDSP GIS</title>
 
     <script type="application/javascript" src="bundle.js"></script>
     <link type="text/css" rel="stylesheet" media="screen" href="styles/style.css">
@@ -88,6 +88,8 @@
         <input type="number" id="threshold" value="3"></input>
         <input class="btn-info right" type="button" value="Refresh" onclick="refresh();"/>
         <br><br> -->
+<select id="selectDE" onchange="deSelected(this);">
+</select>
       </div>
       <div id="container"></div>
       <div id="requestStats"></div>

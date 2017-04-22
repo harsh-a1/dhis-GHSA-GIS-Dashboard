@@ -2,6 +2,7 @@
 //import L from 'leaflet';
 //require('leaflet-measure');
 
+
 function dhis2Map(){
 
     var map;
@@ -28,7 +29,7 @@ function dhis2Map(){
 
         L.easyPrint().addTo(map);
 
-      baseLayers.osm_bw.addTo(map);
+   //   baseLayers.osm_bw.addTo(map);
        // baseLayers.osm.addTo(map);
         
         // var little = L.marker([13.23521,80.3332]).bindPopup('teshgghgft').addTo(map);
