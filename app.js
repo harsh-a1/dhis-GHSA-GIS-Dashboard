@@ -408,7 +408,7 @@ function setBoundaryLayers(map,level,parent,parentLevel){
 
         //   map.addGeoJson(geoJson,null,style,onEachOU)
         map.getMap().fitBounds( map.addGeoJson(geoJson.geoJsonPolygonFeatures,null,style,onEachOU).getBounds());
-        //  addOULabels(geoJson.geoJsonLabelFeatures)
+          addOULabels(geoJson.geoJsonLabelFeatures)
 
         ouFetched();
 
