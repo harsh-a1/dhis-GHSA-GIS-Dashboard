@@ -84,7 +84,7 @@
 
 	var _utilityFunctions2 = _interopRequireDefault(_utilityFunctions);
 
-	var _d3Scale = __webpack_require__(477);
+	var _d3Scale = __webpack_require__(476);
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -98,20 +98,42 @@
 	var api = new _dhis2API2.default();
 	var orgUnitUIDWiseCentroidMap = [];
 	var currentDiseaseDeUID = "F77LnLT0wTN";
+	var currentSelectionOUNames = "";
 
 	(0, _jquery2.default)('document').ready(function () {
 	    map = new _map2.default();
 	    map.init("mapid", [13.23521, 80.3332], 5);
-	    setBoundaryLayers();
+	    setBoundaryLayers(2, "WljvC4Ev45Y");
 
 	    fetchDEs();
 	});
 
-	window.deSelected = function (elem) {
-	    currentDiseaseDeUID = elem.selectedOptions[0].value;
-	    map.clearLayers();
-	    getData();
+	window.reset = function () {
+	    clearData();
+	    setBoundaryLayers(2, "WljvC4Ev45Y");
 	};
+	window.deSelected = function (elem) {
+
+	    currentDiseaseDeUID = elem.selectedOptions[0].value;
+	    map.clearLayers("layerId", "custom");
+	    getData(currentSelectionOUNames);
+	};
+
+	function clearData() {
+	    map.clearLayers("layerId", "custom");
+	    map.clearLayers("layerId", "ou");
+	    currentSelectionOUNames = [];
+	}
+	// Gets fired if ou are successfully gotten from API
+	function ouFetched(ous) {
+
+	    for (var i = 0; i < ous.length; i++) {
+	        currentSelectionOUNames = currentSelectionOUNames + ous[i].id + ";";
+	    }
+
+	    getData(currentSelectionOUNames);
+	}
+
 	function fetchDEs() {
 	    _ajaxWrapper2.default.request({
 	        type: "GET",
@@ -140,7 +162,7 @@
 	        type: "GET",
 	        async: true,
 	        contentType: "application/json",
-	        url: "../../analytics/dataValueSet.json?dimension=dx:" + currentDiseaseDeUID + "&dimension=ou:TC3u1PWRhUl;zvdyAu36Jdc;P9JVvU606MC;lMRqka8Trmt;LFrxRGnnkf1;SfHPptmriak;r7zN1iGqO28;ZyuwKXDoZzo;qPVfEFTn5NH;TA4KV1QBJtl;vlmI0npiZ11;jO4CZffulCu;OZ5xzjAxVgu;zBtXYjHOUED;F3Kw7QWZpFu;LRVGjeuOLyE;NIU6q1Icuv5;fWxq2GNhZ7j;mTkZvAtqxq9;kaSqJZdaGkU;J2v97q1ptLm;CCpVSFdgQtO;mQtPV0pt0mZ;K1s8W4arDFw;YJefwu9qI9H;gQqOjjSCOtp;by0k22r4gm0;Okrj7tQxHbm;fhcwS3FrcwT;AU7FUrZsxwh;x8hX70TpB7w;OhL1G1iPQYC;v0PM7jZvVpi;mEIiPlZVqDB;OKqYGzYdbOx;ygWcNC3gKkm&dimension=pe:LAST_YEAR&displayProperty=NAME"
+	        url: "../../analytics/dataValueSet.json?dimension=dx:" + currentDiseaseDeUID + "&dimension=ou:" + currentSelectionOUNames + "&dimension=pe:LAST_YEAR&displayProperty=NAME"
 	    }, function (error, response) {
 	        if (error) {} else {
 
@@ -151,7 +173,12 @@
 	}
 
 	function drillDown(e) {
-	    debugger;
+
+	    map.clearLayers();
+	    currentSelectionOUNames = [];
+
+	    var level = e.target.feature.properties.level;
+	    setBoundaryLayers(level + 1, e.target.feature.properties.ouUID);
 	}
 	function addDiseaseToLayer(_data) {
 
@@ -171,7 +198,7 @@
 	        var centroid = orgUnitUIDWiseCentroidMap[data[i].orgUnit];
 	        if (centroid) {
 	            centroid.properties.size = data[i].value;
-	            centroid.properties.layerId = "circles";
+	            centroid.properties.layerId = "custom";
 	            geoJsonPointFeatures.features.push(centroid);
 	            geoJsonPointFeaturesLabels.features.push(centroid);
 	        }
@@ -228,7 +255,7 @@
 	    function getRadius(y) {
 
 	        var r = Math.sqrt(y / Math.PI);
-	        console.log(scale(y));
+	        // console.log(scale(y));
 	        return r;
 	    }
 
@@ -267,10 +294,12 @@
 	        });
 	    };
 	    map.addGeoJson(geoJsonPointFeaturesLabels, pointToLayerLabel, null, null);
-	    map.addGeoJson(geoJsonPointFeatures, pointToLayer, null, null);
+	    var spotLayer = map.addGeoJson(geoJsonPointFeatures, pointToLayer, null, null);
+
+	    map.getMap().fitBounds(spotLayer.getBounds());
 	}
 
-	function setBoundaryLayers() {
+	function setBoundaryLayers(level, parent) {
 
 	    var style = { color: "black",
 	        opacity: 0.75,
@@ -281,7 +310,7 @@
 
 	    };
 
-	    addOrgUnitLayer(2, Object.assign({}, style));
+	    addOrgUnitLayer(level, Object.assign({}, style));
 	    style.weight = 0.95;
 	    style.color = "black";
 	    style.opacity = 0.25;
@@ -289,41 +318,69 @@
 
 	    function addOrgUnitLayer(level, style) {
 
+	        var url = "../../organisationUnits?filter=level:eq:" + level + "&fields=id,level,name,coordinates&paging=false&filter=parent.id:eq:" + parent;
+
 	        _ajaxWrapper2.default.request({
 	            type: "GET",
 	            async: true,
 	            contentType: "application/json",
-	            url: "../../organisationUnits?filter=level:eq:" + level + "&fields=id,name,coordinates&paging=false"
+	            url: url
 	        }, function (error, response) {
 	            if (error) {} else {
-	                addOrgUnits(getCoordinatesFromOus(response.organisationUnits), style);
+	                addOrgUnits(getFeatureSetFromOus(response.organisationUnits), style);
+	                ouFetched(response.organisationUnits);
 	            }
 	        });
 	    }
 
-	    function addOrgUnits(blockCoords, style) {
+	    function addOrgUnits(geoJson, style) {
 
-	        // a GeoJSON multipolygon
-	        var mp = {
-	            "type": "Feature",
-	            "geometry": {
-	                "type": "MultiPolygon",
-	                "coordinates": blockCoords
-	            },
-	            "properties": {
-	                "name": "MultiPolygon",
-	                key: "block"
+	        //create highlight style, with darker color and larger radius
+	        function highlightStyle(feature) {
+	            return {
+	                //  radius: getRadius(feature.properties.size)+1.5,
+	                fillColor: "#102040",
+	                color: "#116",
+	                weight: 1,
+	                opacity: 1,
+	                fillOpacity: 0.9
+	            };
+	        }
+
+	        //attach styles and popups to the marker layer
+	        function highlightOU(e) {
+	            var layer = e.target;
+	            var dotStyleHighlight = highlightStyle(layer.feature);
+	            layer.setStyle(dotStyleHighlight);
+	            if (!L.Browser.ie && !L.Browser.opera) {
+	                layer.bringToFront();
 	            }
-	        };
+	        }
+	        function resetOUHighlight(e) {
+	            var layer = e.target;
+	            var dotStyleDefault = style;
+	            layer.setStyle(dotStyleDefault);
+	        }
 
+	        function onEachOU(feature, layer) {
+	            layer.on({
+	                mouseover: highlightOU,
+	                mouseout: resetOUHighlight,
+	                click: drillDown
+	            });
+	        }
 	        var pointToLayer = function pointToLayer(feature, latlng) {
 	            feature.properties.style = style;
 	        };
 
-	        map.addGeoJson(mp, null, style);
+	        //    map.addGeoJson(geoJson,null,style,onEachOU)
+	        map.getMap().fitBounds(map.addGeoJson(geoJson, null, style, onEachOU).getBounds());
 	    }
 
-	    function getCoordinatesFromOus(ous) {
+	    function getFeatureSetFromOus(ous) {
+
+	        // a GeoJSON multipolygon
+	        var geoJsonPolygonFeatures = [];
 
 	        var ouCoords = [];
 	        for (var key in ous) {
@@ -335,10 +392,24 @@
 	                var centroid = _mapUtilities2.default.getPolygonCentroid(co);
 	                orgUnitUIDWiseCentroidMap[ous[key].id] = centroid;
 
+	                var poly = {
+	                    "type": "Feature",
+	                    "properties": {
+	                        "ouUID": ous[key].id,
+	                        "level": ous[key].level,
+	                        layerId: "ou"
+	                    },
+	                    "geometry": {
+	                        "type": "Polygon",
+	                        "coordinates": co
+	                    }
+	                };
+
+	                geoJsonPolygonFeatures.push(poly);
 	                ouCoords.push(co);
 	            }
 	        }
-	        return ouCoords;
+	        return geoJsonPolygonFeatures;
 	    }
 
 	    function getIndex(array) {
@@ -60765,11 +60836,10 @@
 	        // var little = L.marker([13.23521,80.3332]).bindPopup('teshgghgft').addTo(map);
 	    };
 
-	    this.clearLayers = function () {
+	    this.clearLayers = function (id, value) {
 	        map.eachLayer(function (layer) {
 	            if (layer.feature) {
-	                if (layer.feature.properties.layerId) {
-
+	                if (layer.feature.properties[id] == value) {
 	                    map.removeLayer(layer);
 	                }
 	            }
@@ -93019,13 +93089,12 @@
 	function MapContainer() {}
 
 /***/ }),
-/* 476 */,
-/* 477 */
+/* 476 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-scale/ Version 1.0.5. Copyright 2017 Mike Bostock.
 	(function (global, factory) {
-		 true ? factory(exports, __webpack_require__(478), __webpack_require__(479), __webpack_require__(480), __webpack_require__(482), __webpack_require__(483), __webpack_require__(484), __webpack_require__(481)) :
+		 true ? factory(exports, __webpack_require__(477), __webpack_require__(478), __webpack_require__(479), __webpack_require__(481), __webpack_require__(482), __webpack_require__(483), __webpack_require__(480)) :
 		typeof define === 'function' && define.amd ? define(['exports', 'd3-array', 'd3-collection', 'd3-interpolate', 'd3-format', 'd3-time', 'd3-time-format', 'd3-color'], factory) :
 		(factory((global.d3 = global.d3 || {}),global.d3,global.d3,global.d3,global.d3,global.d3,global.d3,global.d3));
 	}(this, (function (exports,d3Array,d3Collection,d3Interpolate,d3Format,d3Time,d3TimeFormat,d3Color) { 'use strict';
@@ -93929,7 +93998,7 @@
 
 
 /***/ }),
-/* 478 */
+/* 477 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-array/ Version 1.2.0. Copyright 2017 Mike Bostock.
@@ -94524,7 +94593,7 @@
 
 
 /***/ }),
-/* 479 */
+/* 478 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-collection/ Version 1.0.3. Copyright 2017 Mike Bostock.
@@ -94747,12 +94816,12 @@
 
 
 /***/ }),
-/* 480 */
+/* 479 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-interpolate/ Version 1.1.4. Copyright 2017 Mike Bostock.
 	(function (global, factory) {
-		 true ? factory(exports, __webpack_require__(481)) :
+		 true ? factory(exports, __webpack_require__(480)) :
 		typeof define === 'function' && define.amd ? define(['exports', 'd3-color'], factory) :
 		(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Color) { 'use strict';
@@ -95298,7 +95367,7 @@
 
 
 /***/ }),
-/* 481 */
+/* 480 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-color/ Version 1.0.3. Copyright 2017 Mike Bostock.
@@ -95827,7 +95896,7 @@
 
 
 /***/ }),
-/* 482 */
+/* 481 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-format/ Version 1.2.0. Copyright 2017 Mike Bostock.
@@ -96164,7 +96233,7 @@
 
 
 /***/ }),
-/* 483 */
+/* 482 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-time/ Version 1.0.6. Copyright 2017 Mike Bostock.
@@ -96548,12 +96617,12 @@
 
 
 /***/ }),
-/* 484 */
+/* 483 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-time-format/ Version 2.0.5. Copyright 2017 Mike Bostock.
 	(function (global, factory) {
-		 true ? factory(exports, __webpack_require__(483)) :
+		 true ? factory(exports, __webpack_require__(482)) :
 		typeof define === 'function' && define.amd ? define(['exports', 'd3-time'], factory) :
 		(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Time) { 'use strict';

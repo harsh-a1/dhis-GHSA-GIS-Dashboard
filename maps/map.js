@@ -37,13 +37,11 @@ function dhis2Map(){
     };
 
 
-    this.clearLayers = function(){
+    this.clearLayers = function(id,value){
         map.eachLayer(function (layer) {
             if (layer.feature){
-                if (layer.feature.properties.layerId){
-
+                if (layer.feature.properties[id] == value){
                     map.removeLayer(layer);
-
                 }
             }
         });

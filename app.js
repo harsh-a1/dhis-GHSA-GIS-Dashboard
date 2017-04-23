@@ -17,30 +17,52 @@ import {scaleLinear} from "d3-scale";
 
 
 var scale = scaleLinear()        
-            .domain([0,50000000])
-            .range([9,100]);
-       
+    .domain([0,50000000])
+    .range([9,100]);
+
 var map;
 var api = new dhis2API();
 var orgUnitUIDWiseCentroidMap = [];
 var currentDiseaseDeUID = "F77LnLT0wTN";
-
+var currentSelectionOUNames = "";
 
 $('document').ready(function(){
     map = new dhis2Map();
-  map.init("mapid",[13.23521,80.3332],5);
-    setBoundaryLayers();
+    map.init("mapid",[13.23521,80.3332],5);
+    setBoundaryLayers(2,"WljvC4Ev45Y");
 
     fetchDEs();
 
 })
 
-window.deSelected = function(elem){
-    currentDiseaseDeUID = elem.selectedOptions[0].value;
-    map.clearLayers();
-    getData();
+window.reset = function(){
+    clearData();
+    setBoundaryLayers(2,"WljvC4Ev45Y");
 
 }
+window.deSelected = function(elem){
+
+    currentDiseaseDeUID = elem.selectedOptions[0].value;
+    map.clearLayers("layerId","custom");
+    getData(currentSelectionOUNames);
+
+}
+
+function clearData(){
+    map.clearLayers("layerId","custom");
+    map.clearLayers("layerId","ou");
+    currentSelectionOUNames = [];
+}
+// Gets fired if ou are successfully gotten from API
+function ouFetched(ous){
+    
+    for (var i=0;i<ous.length;i++){
+        currentSelectionOUNames = currentSelectionOUNames + ous[i].id + ";"
+    }
+
+    getData(currentSelectionOUNames);
+}
+
 function fetchDEs(){
     ajax.request({
         type: "GET",
@@ -73,7 +95,7 @@ function getData(){
         type: "GET",
         async: true,
         contentType: "application/json",
-        url: "../../analytics/dataValueSet.json?dimension=dx:"+currentDiseaseDeUID+"&dimension=ou:TC3u1PWRhUl;zvdyAu36Jdc;P9JVvU606MC;lMRqka8Trmt;LFrxRGnnkf1;SfHPptmriak;r7zN1iGqO28;ZyuwKXDoZzo;qPVfEFTn5NH;TA4KV1QBJtl;vlmI0npiZ11;jO4CZffulCu;OZ5xzjAxVgu;zBtXYjHOUED;F3Kw7QWZpFu;LRVGjeuOLyE;NIU6q1Icuv5;fWxq2GNhZ7j;mTkZvAtqxq9;kaSqJZdaGkU;J2v97q1ptLm;CCpVSFdgQtO;mQtPV0pt0mZ;K1s8W4arDFw;YJefwu9qI9H;gQqOjjSCOtp;by0k22r4gm0;Okrj7tQxHbm;fhcwS3FrcwT;AU7FUrZsxwh;x8hX70TpB7w;OhL1G1iPQYC;v0PM7jZvVpi;mEIiPlZVqDB;OKqYGzYdbOx;ygWcNC3gKkm&dimension=pe:LAST_YEAR&displayProperty=NAME"
+        url: "../../analytics/dataValueSet.json?dimension=dx:"+currentDiseaseDeUID+"&dimension=ou:"+currentSelectionOUNames+"&dimension=pe:LAST_YEAR&displayProperty=NAME"
     },function(error,response){
         if (error){
 
@@ -86,7 +108,12 @@ function getData(){
 }
 
 function drillDown(e){
-    debugger
+ 
+    map.clearLayers();
+currentSelectionOUNames = [];
+    
+    var level = e.target.feature.properties.level;
+    setBoundaryLayers(level+1,e.target.feature.properties.ouUID);   
 }
 function addDiseaseToLayer(_data){
     
@@ -107,7 +134,7 @@ function addDiseaseToLayer(_data){
         var centroid = orgUnitUIDWiseCentroidMap[data[i].orgUnit];
         if (centroid){
             centroid.properties.size = data[i].value;
-            centroid.properties.layerId = "circles";
+            centroid.properties.layerId = "custom";
             geoJsonPointFeatures.features.push(centroid);
             geoJsonPointFeaturesLabels.features.push(centroid);
 
@@ -171,8 +198,8 @@ function addDiseaseToLayer(_data){
 
     function getRadius(y) {
 
-         var r = Math.sqrt(y / Math.PI)
-        console.log(scale(y));
+        var r = Math.sqrt(y / Math.PI)
+       // console.log(scale(y));
         return r;
     }
 
@@ -212,11 +239,14 @@ function addDiseaseToLayer(_data){
         });
     }
     map.addGeoJson(geoJsonPointFeaturesLabels,pointToLayerLabel,null,null);
-    map.addGeoJson(geoJsonPointFeatures,pointToLayer,null,null);
+    var spotLayer = map.addGeoJson(geoJsonPointFeatures,pointToLayer,null,null);
+
+    map.getMap().fitBounds(spotLayer.getBounds());
+
 
 }
 
-function setBoundaryLayers(){
+function setBoundaryLayers(level,parent){
 
 
     var style = { color: "black",
@@ -228,7 +258,7 @@ function setBoundaryLayers(){
 
                 }
 
-    addOrgUnitLayer(2,Object.assign({},style));
+    addOrgUnitLayer(level,Object.assign({},style));
     style.weight =0.95;
     style.color = "black";
     style.opacity = 0.25;
@@ -236,43 +266,73 @@ function setBoundaryLayers(){
 
     function addOrgUnitLayer(level,style){
 
+        var url =  "../../organisationUnits?filter=level:eq:"+level+"&fields=id,level,name,coordinates&paging=false&filter=parent.id:eq:"+parent;
+        
         ajax.request({
             type: "GET",
             async: true,
             contentType: "application/json",
-            url: "../../organisationUnits?filter=level:eq:"+level+"&fields=id,name,coordinates&paging=false"
+            url: url
         },function(error,response){
             if (error){
 
             }else{
-                addOrgUnits(getCoordinatesFromOus(response.organisationUnits),style);
+                addOrgUnits(getFeatureSetFromOus(response.organisationUnits),style);
+                ouFetched(response.organisationUnits)
             }
         })
     }
 
-    function addOrgUnits(blockCoords,style){
+    function addOrgUnits(geoJson,style){
 
-        // a GeoJSON multipolygon
-        var mp = {
-            "type": "Feature",
-            "geometry": {
-                "type": "MultiPolygon",
-                "coordinates": blockCoords
-            },
-            "properties": {
-                "name": "MultiPolygon",
-                key : "block"
+   
+        //create highlight style, with darker color and larger radius
+        function highlightStyle(feature) {
+            return {
+                //  radius: getRadius(feature.properties.size)+1.5,
+    	        fillColor: "#102040",
+    	        color: "#116",
+                weight: 1,
+	        opacity: 1,
+	        fillOpacity: 0.9
+            };
+        }
+
+        //attach styles and popups to the marker layer
+        function highlightOU(e) {
+            var layer = e.target;
+            var dotStyleHighlight = highlightStyle(layer.feature);
+            layer.setStyle(dotStyleHighlight);
+            if (!L.Browser.ie && !L.Browser.opera) {
+                layer.bringToFront();
             }
-        };
+        }
+        function resetOUHighlight(e) {
+            var layer = e.target;
+            var dotStyleDefault = style;
+            layer.setStyle(dotStyleDefault);
+        }
 
+        function onEachOU(feature, layer) {
+            layer.on({
+                mouseover: highlightOU,
+                mouseout: resetOUHighlight,
+                click : drillDown
+            });
+        }
         var pointToLayer = function(feature, latlng) {
             feature.properties.style = style;
         };
 
-        map.addGeoJson(mp,null,style);
+   //    map.addGeoJson(geoJson,null,style,onEachOU)
+    map.getMap().fitBounds( map.addGeoJson(geoJson,null,style,onEachOU).getBounds());
+
     }
 
-    function getCoordinatesFromOus(ous){
+    function getFeatureSetFromOus(ous){
+
+        // a GeoJSON multipolygon
+        var geoJsonPolygonFeatures = [];
 
         var ouCoords = [];
         for (var key in ous){
@@ -284,10 +344,25 @@ function setBoundaryLayers(){
                 var centroid = mUtility.getPolygonCentroid(co);
                 orgUnitUIDWiseCentroidMap[ous[key].id] = centroid;
                 
+                var poly = {
+                    "type": "Feature",
+                    "properties": 
+                    {
+                        "ouUID":ous[key].id,
+                        "level" : ous[key].level,
+                        layerId : "ou"
+                    },
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": co
+                    }
+                }
+
+                geoJsonPolygonFeatures.push(poly);
                 ouCoords.push(co);
             }
         }
-        return ouCoords;
+        return geoJsonPolygonFeatures;
     }
 
     function getIndex(array){
