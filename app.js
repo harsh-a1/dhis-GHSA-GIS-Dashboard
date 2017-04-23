@@ -196,7 +196,8 @@ function addDiseaseToLayer(_data){
     function highlightStyle(feature) {
         return {
             radius: getRadius(feature.properties.size,feature.properties.maxmin)+1.5,
-    	    fillColor: "#ffafca",
+        fillColor: "#ffafca",
+   // 	    fillColor: "#ddacca",
     	    color: "#116",
             weight: 1,
 	    opacity: 1,
@@ -279,7 +280,8 @@ function addDiseaseToLayer(_data){
     function style(feature) {
         return {
             radius: getRadius(feature.properties.size,feature.properties.maxmin),
-            fillColor:"#ef99b6",
+        //    fillColor:"#f4b5ef",
+            fillColor:"#AFEEEE",
             color: "#000",
             weight: 1,
             opacity: 0,

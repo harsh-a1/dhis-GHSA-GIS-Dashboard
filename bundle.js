@@ -257,6 +257,7 @@
 	        return {
 	            radius: getRadius(feature.properties.size, feature.properties.maxmin) + 1.5,
 	            fillColor: "#ffafca",
+	            // 	    fillColor: "#ddacca",
 	            color: "#116",
 	            weight: 1,
 	            opacity: 1,
@@ -329,7 +330,8 @@
 	    function style(feature) {
 	        return {
 	            radius: getRadius(feature.properties.size, feature.properties.maxmin),
-	            fillColor: "#ef99b6",
+	            //    fillColor:"#f4b5ef",
+	            fillColor: "#AFEEEE",
 	            color: "#000",
 	            weight: 1,
 	            opacity: 0,
@@ -79698,7 +79700,7 @@
 
 	        L.easyPrint().addTo(map);
 
-	        baseLayers.osm_bw.addTo(map);
+	        //baseLayers.osm_bw.addTo(map);
 	        // baseLayers.osm.addTo(map);
 
 	        // var little = L.marker([13.23521,80.3332]).bindPopup('teshgghgft').addTo(map);
