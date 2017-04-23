@@ -20,17 +20,32 @@
   background: orange;
 }
 
+.legend .circle {
+  background: yellow;
+  border-radius: 50%;
+  width: 10px;
+  height: 10px;
+  margin-top: 8px;
+}
 
 .yellow{
   background: #e6ac00;
 }
 
 .label{
-font-align : left;
-font-size:120%;
-color : black;
+    pointer-events:none;
+    font-align : left;
+    font-size:120%;
+    color : black;
 }
 
+.ouLabel{
+    display : inline-block;!important
+    pointer-events:none;
+    font-align : left;
+    font-size:77%;
+    color : black;
+}
 .alert-icon-centroid {
   display: inline-block;!important
   border-radius: 110px;

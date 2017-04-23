@@ -88,48 +88,60 @@
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-	var scale = (0, _d3Scale.scaleLinear)().domain([0, 50000000]).range([9, 100]);
+	var map;
 	//import L from 'leaflet';
 	/**
 	 * Created by harsh on 15/12/16.
 	 */
 
-	var map;
 	var api = new _dhis2API2.default();
 	var orgUnitUIDWiseCentroidMap = [];
 	var currentDiseaseDeUID = "F77LnLT0wTN";
 	var currentSelectionOUNames = "";
+	var currentSelectionOUMap = [];
+	var currentSelectionOUName = "WljvC4Ev45Y";
+	var currentSelectionOULevel = "2";
 
 	(0, _jquery2.default)('document').ready(function () {
 	    map = new _map2.default();
 	    map.init("mapid", [13.23521, 80.3332], 5);
-	    setBoundaryLayers(2, "WljvC4Ev45Y");
+	    setBoundaryLayers(currentSelectionOULevel, currentSelectionOUName);
 
 	    fetchDEs();
 	});
 
 	window.reset = function () {
 	    clearData();
-	    setBoundaryLayers(2, "WljvC4Ev45Y");
+	    currentSelectionOUName = "WljvC4Ev45Y";
+	    currentSelectionOULevel = "2";
+	    setBoundaryLayers(currentSelectionOULevel, currentSelectionOUName);
 	};
 	window.deSelected = function (elem) {
 
 	    currentDiseaseDeUID = elem.selectedOptions[0].value;
-	    map.clearLayers("layerId", "custom");
-	    getData(currentSelectionOUNames);
+	    clearData();
+	    setBoundaryLayers(currentSelectionOULevel, currentSelectionOUName);
 	};
 
 	function clearData() {
 	    map.clearLayers("layerId", "custom");
 	    map.clearLayers("layerId", "ou");
 	    currentSelectionOUNames = [];
+	    currentSelectionOUMap = [];
 	}
+
+	function drillDown(e) {
+
+	    map.clearLayers();
+	    currentSelectionOUNames = [];
+
+	    currentSelectionOULevel = e.target.feature.properties.level + 1;
+	    currentSelectionOUName = e.target.feature.properties.ouUID;
+	    setBoundaryLayers(currentSelectionOULevel, currentSelectionOUName);
+	}
+
 	// Gets fired if ou are successfully gotten from API
 	function ouFetched(ous) {
-
-	    for (var i = 0; i < ous.length; i++) {
-	        currentSelectionOUNames = currentSelectionOUNames + ous[i].id + ";";
-	    }
 
 	    getData(currentSelectionOUNames);
 	}
@@ -172,17 +184,11 @@
 	    });
 	}
 
-	function drillDown(e) {
-
-	    map.clearLayers();
-	    currentSelectionOUNames = [];
-
-	    var level = e.target.feature.properties.level;
-	    setBoundaryLayers(level + 1, e.target.feature.properties.ouUID);
-	}
 	function addDiseaseToLayer(_data) {
 
 	    var data = _data[currentDiseaseDeUID];
+
+	    var maxmin = _utilityFunctions2.default.getMaxMin(data, "value");
 
 	    var geoJsonPointFeatures = {
 	        type: "FeatureCollection",
@@ -199,16 +205,20 @@
 	        if (centroid) {
 	            centroid.properties.size = data[i].value;
 	            centroid.properties.layerId = "custom";
-	            geoJsonPointFeatures.features.push(centroid);
-	            geoJsonPointFeaturesLabels.features.push(centroid);
+	            centroid.properties.maxmin = maxmin;
+	            centroid.properties.ouUID = data[i].orgUnit;
+	            centroid.properties.level = currentSelectionOUMap[centroid.properties.ouUID].level;
+
+	            geoJsonPointFeatures.features.push(Object.assign({}, centroid));
+	            geoJsonPointFeaturesLabels.features.push(Object.assign({}, centroid));
 	        }
 	    }
 
 	    //create highlight style, with darker color and larger radius
 	    function highlightStyle(feature) {
 	        return {
-	            radius: getRadius(feature.properties.size) + 1.5,
-	            fillColor: "#102040",
+	            radius: getRadius(feature.properties.size, feature.properties.maxmin) + 1.5,
+	            fillColor: "#ffafca",
 	            color: "#116",
 	            weight: 1,
 	            opacity: 1,
@@ -246,23 +256,42 @@
 	            mouseout: resetLabelHighlight,
 	            click: drillDown
 	        });
+
+	        //attach styles and popups to the marker layer
+	        function highlightLabel(e) {
+	            var layer = e.target;
+	            layer = map.getLayer("ouUID", layer.feature.properties.ouUID);
+	            var dotStyleHighlight = highlightStyle(layer.feature);
+	            layer.setStyle(dotStyleHighlight);
+	            if (!L.Browser.ie && !L.Browser.opera) {
+	                layer.bringToFront();
+	            }
+	        }
+	        function resetLabelHighlight(e) {
+	            var layer = e.target;
+	            layer = map.getLayer("ouUID", layer.feature.properties.ouUID);
+	            var dotStyleDefault = style(layer.feature);
+	            layer.setStyle(dotStyleDefault);
+	        }
 	    }
 
 	    function getColor(y) {
 	        return y > 2000 ? '#6068F0' : y > 1980 ? '#7660C9' : y > 1960 ? '#8C58A3' : y > 1940 ? '#A3507C' : y > 1920 ? '#B94856' : '#D04030';
 	    }
 
-	    function getRadius(y) {
+	    function getRadius(y, maxmin) {
+
+	        var scale = (0, _d3Scale.scaleLinear)().domain([maxmin.min, maxmin.max]).range([8, 30]);
 
 	        var r = Math.sqrt(y / Math.PI);
-	        // console.log(scale(y));
-	        return r;
+	        //console.log(scale(y));
+	        return scale(y);
 	    }
 
 	    function style(feature) {
 	        return {
-	            radius: getRadius(feature.properties.size),
-	            fillColor: getColor(1940),
+	            radius: getRadius(feature.properties.size, feature.properties.maxmin),
+	            fillColor: "#ef99b6",
 	            color: "#000",
 	            weight: 1,
 	            opacity: 0,
@@ -283,7 +312,7 @@
 
 	        var labelIcon = L.divIcon({
 	            className: 'label',
-	            html: '<i>' + feature.properties.size + '</i>',
+	            html: '<i className="label">' + feature.properties.size + '</i>',
 	            iconSize: null,
 	            iconAnchor: [17, 7.5]
 	        });
@@ -293,10 +322,15 @@
 
 	        });
 	    };
-	    map.addGeoJson(geoJsonPointFeaturesLabels, pointToLayerLabel, null, null);
-	    var spotLayer = map.addGeoJson(geoJsonPointFeatures, pointToLayer, null, null);
-
+	    map.addGeoJson(geoJsonPointFeaturesLabels, pointToLayerLabel, null, onEachLabel);
+	    var spotLayer = map.addGeoJson(geoJsonPointFeatures, pointToLayer, null, onEachDot);
 	    map.getMap().fitBounds(spotLayer.getBounds());
+
+	    //addLegend(map.getMap(),maxmin)
+	}
+
+	function zoomToFeature(e) {
+	    map.getMap().fitBounds(e.target.getBounds());
 	}
 
 	function setBoundaryLayers(level, parent) {
@@ -305,7 +339,7 @@
 	        opacity: 0.75,
 	        fillColor: "white",
 	        fillOpacity: 0,
-	        weight: 2
+	        weight: 1.5
 	        //                  dashArray: '5, 5',
 
 	    };
@@ -328,7 +362,6 @@
 	        }, function (error, response) {
 	            if (error) {} else {
 	                addOrgUnits(getFeatureSetFromOus(response.organisationUnits), style);
-	                ouFetched(response.organisationUnits);
 	            }
 	        });
 	    }
@@ -339,7 +372,7 @@
 	        function highlightStyle(feature) {
 	            return {
 	                //  radius: getRadius(feature.properties.size)+1.5,
-	                fillColor: "#102040",
+	                fillColor: "#ffec63",
 	                color: "#116",
 	                weight: 1,
 	                opacity: 1,
@@ -366,21 +399,51 @@
 	            layer.on({
 	                mouseover: highlightOU,
 	                mouseout: resetOUHighlight,
-	                click: drillDown
+	                click: zoomToFeature
 	            });
 	        }
 	        var pointToLayer = function pointToLayer(feature, latlng) {
 	            feature.properties.style = style;
 	        };
 
-	        //    map.addGeoJson(geoJson,null,style,onEachOU)
-	        map.getMap().fitBounds(map.addGeoJson(geoJson, null, style, onEachOU).getBounds());
+	        //   map.addGeoJson(geoJson,null,style,onEachOU)
+	        map.getMap().fitBounds(map.addGeoJson(geoJson.geoJsonPolygonFeatures, null, style, onEachOU).getBounds());
+	        //  addOULabels(geoJson.geoJsonLabelFeatures)
+
+	        ouFetched();
 	    }
 
+	    function addOULabels(geoJson) {
+
+	        var pointToLayerLabel = function pointToLayerLabel(feature, latlng) {
+	            var name = null;
+
+	            if (currentSelectionOUMap[feature.properties.ouUID]) {
+	                name = currentSelectionOUMap[feature.properties.ouUID].name;
+	            }
+
+	            if (!name) {
+	                debugger;
+	            }
+	            var labelIcon = L.divIcon({
+	                className: 'ouLabel',
+	                html: '<i className="ouLabel">' + name + '</i>',
+	                iconSize: null,
+	                iconAnchor: [15, 15]
+	            });
+
+	            return L.marker(latlng, {
+	                icon: labelIcon
+	            });
+	        };
+
+	        map.addGeoJson(geoJson, pointToLayerLabel, null, null);
+	    }
 	    function getFeatureSetFromOus(ous) {
 
 	        // a GeoJSON multipolygon
 	        var geoJsonPolygonFeatures = [];
+	        var geoJsonLabelFeatures = [];
 
 	        var ouCoords = [];
 	        for (var key in ous) {
@@ -390,7 +453,12 @@
 
 	                var co = coords[getIndex(coords)];
 	                var centroid = _mapUtilities2.default.getPolygonCentroid(co);
+	                centroid.properties.ouUID = ous[key].id;
+	                centroid.properties.layerId = "ou";
+
 	                orgUnitUIDWiseCentroidMap[ous[key].id] = centroid;
+	                currentSelectionOUMap[ous[key].id] = ous[key];
+	                currentSelectionOUNames = currentSelectionOUNames + ous[key].id + ";";
 
 	                var poly = {
 	                    "type": "Feature",
@@ -406,10 +474,13 @@
 	                };
 
 	                geoJsonPolygonFeatures.push(poly);
-	                ouCoords.push(co);
+	                geoJsonLabelFeatures.push(Object.assign({}, centroid));
+
+	                // ouCoords.push(co);
 	            }
 	        }
-	        return geoJsonPolygonFeatures;
+	        return { geoJsonPolygonFeatures: geoJsonPolygonFeatures,
+	            geoJsonLabelFeatures: geoJsonLabelFeatures };
 	    }
 
 	    function getIndex(array) {
@@ -425,6 +496,32 @@
 
 	        return index;
 	    }
+	}
+
+	function getRadius(y, maxmin) {
+
+	    var scale = (0, _d3Scale.scaleLinear)().domain([maxmin.min, maxmin.max]).range([8, 30]);
+
+	    var r = Math.sqrt(y / Math.PI);
+	    //console.log(scale(y));
+	    return scale(y);
+	}
+
+	function addLegend(map, maxmin) {
+	    var legend = L.control({ position: 'bottomright' });
+
+	    legend.onAdd = function (map) {
+
+	        var div = L.DomUtil.create('div', 'info legend');
+	        var height = 15,
+	            width = 15;
+	        // var height1 = 40,width1=40;
+	        var html = '<i class="circle" style="border-radius:100%; width:20px;height:20px;">' + 2 + '</i>';
+	        div.innerHTML = html;
+	        return div;
+	    };
+
+	    legend.addTo(map);
 	}
 
 /***/ }),
@@ -32752,6 +32849,22 @@
 	    return map;
 	};
 
+	_.getMaxMin = function (data, id) {
+
+	    var max = 0,
+	        min = 0;
+
+	    for (var i = 0; i < data.length; i++) {
+	        if (Number(data[i][id]) > max) {
+	            max = data[i][id];
+	        }
+	        if (Number(data[i][id]) < min) {
+	            min = data[i][id];
+	        }
+	    }
+
+	    return { max: max, min: min };
+	};
 	_.prepareUID = function (options, ids) {
 
 	    var sha1 = __webpack_require__(186);
@@ -60830,7 +60943,7 @@
 
 	        L.easyPrint().addTo(map);
 
-	        //   baseLayers.osm_bw.addTo(map);
+	        baseLayers.osm_bw.addTo(map);
 	        // baseLayers.osm.addTo(map);
 
 	        // var little = L.marker([13.23521,80.3332]).bindPopup('teshgghgft').addTo(map);
@@ -60844,6 +60957,18 @@
 	                }
 	            }
 	        });
+	    };
+
+	    this.getLayer = function (id, value) {
+	        var _layer;
+	        map.eachLayer(function (layer) {
+	            if (layer.feature) {
+	                if (layer.feature.properties[id] == value) {
+	                    _layer = layer;
+	                }
+	            }
+	        });
+	        return _layer;
 	    };
 	    this.addGeoJson = function (geoJson, pointToLayer, style, onEachFeature) {
 

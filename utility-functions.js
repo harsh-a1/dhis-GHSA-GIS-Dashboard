@@ -23,6 +23,17 @@ _.prepareMapGroupedById= function(object,id){
     return map;
 }
 
+_.getMaxMin = function(data,id){
+
+    var max = 0, min=0;
+
+    for (var i=0;i<data.length;i++){
+        if (Number(data[i][id]) > max) {max = data[i][id]  }
+        if (Number(data[i][id]) < min) {min = data[i][id]  }
+    }
+
+return {max:max,min:min}
+}
 _.prepareUID = function(options,ids){
     
     var sha1 = require('js-sha1');

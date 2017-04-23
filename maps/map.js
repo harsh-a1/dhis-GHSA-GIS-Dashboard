@@ -29,7 +29,7 @@ function dhis2Map(){
 
         L.easyPrint().addTo(map);
 
-   //   baseLayers.osm_bw.addTo(map);
+      baseLayers.osm_bw.addTo(map);
        // baseLayers.osm.addTo(map);
         
         // var little = L.marker([13.23521,80.3332]).bindPopup('teshgghgft').addTo(map);
@@ -45,6 +45,18 @@ function dhis2Map(){
                 }
             }
         });
+    }
+
+    this.getLayer = function(id,value){
+        var _layer;
+         map.eachLayer(function (layer) {
+            if (layer.feature){
+                if (layer.feature.properties[id] == value){
+                    _layer = layer
+                }
+            }
+        });
+        return _layer;
     }
     this.addGeoJson = function(geoJson,pointToLayer,style,onEachFeature){
 

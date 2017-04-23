@@ -16,20 +16,19 @@ import utility from './utility-functions';
 import {scaleLinear} from "d3-scale";
 
 
-var scale = scaleLinear()        
-    .domain([0,50000000])
-    .range([9,100]);
-
 var map;
 var api = new dhis2API();
 var orgUnitUIDWiseCentroidMap = [];
 var currentDiseaseDeUID = "F77LnLT0wTN";
 var currentSelectionOUNames = "";
+var currentSelectionOUMap = [];
+var currentSelectionOUName ="WljvC4Ev45Y"
+var currentSelectionOULevel ="2"
 
 $('document').ready(function(){
     map = new dhis2Map();
     map.init("mapid",[13.23521,80.3332],5);
-    setBoundaryLayers(2,"WljvC4Ev45Y");
+    setBoundaryLayers(currentSelectionOULevel,currentSelectionOUName);
 
     fetchDEs();
 
@@ -37,14 +36,16 @@ $('document').ready(function(){
 
 window.reset = function(){
     clearData();
-    setBoundaryLayers(2,"WljvC4Ev45Y");
+ currentSelectionOUName ="WljvC4Ev45Y"
+    currentSelectionOULevel ="2"
+    setBoundaryLayers(currentSelectionOULevel,currentSelectionOUName);
 
 }
 window.deSelected = function(elem){
 
     currentDiseaseDeUID = elem.selectedOptions[0].value;
-    map.clearLayers("layerId","custom");
-    getData(currentSelectionOUNames);
+    clearData();
+    setBoundaryLayers(currentSelectionOULevel,currentSelectionOUName);
 
 }
 
@@ -52,14 +53,24 @@ function clearData(){
     map.clearLayers("layerId","custom");
     map.clearLayers("layerId","ou");
     currentSelectionOUNames = [];
+    currentSelectionOUMap = [];
+   
 }
+
+
+function drillDown(e){
+ 
+    map.clearLayers();
+    currentSelectionOUNames = [];
+
+    currentSelectionOULevel =e.target.feature.properties.level+1;
+    currentSelectionOUName =e.target.feature.properties.ouUID;
+    setBoundaryLayers(currentSelectionOULevel,currentSelectionOUName);   
+}
+
 // Gets fired if ou are successfully gotten from API
 function ouFetched(ous){
-    
-    for (var i=0;i<ous.length;i++){
-        currentSelectionOUNames = currentSelectionOUNames + ous[i].id + ";"
-    }
-
+ 
     getData(currentSelectionOUNames);
 }
 
@@ -107,17 +118,11 @@ function getData(){
     })
 }
 
-function drillDown(e){
- 
-    map.clearLayers();
-currentSelectionOUNames = [];
-    
-    var level = e.target.feature.properties.level;
-    setBoundaryLayers(level+1,e.target.feature.properties.ouUID);   
-}
 function addDiseaseToLayer(_data){
     
     var data = _data[currentDiseaseDeUID]
+
+    var maxmin = utility.getMaxMin(data,"value");
 
     var geoJsonPointFeatures = {
         type:"FeatureCollection",
@@ -135,8 +140,13 @@ function addDiseaseToLayer(_data){
         if (centroid){
             centroid.properties.size = data[i].value;
             centroid.properties.layerId = "custom";
-            geoJsonPointFeatures.features.push(centroid);
-            geoJsonPointFeaturesLabels.features.push(centroid);
+            centroid.properties.maxmin = maxmin;
+            centroid.properties.ouUID = data[i].orgUnit;
+            centroid.properties.level = currentSelectionOUMap[centroid.properties.ouUID].level;
+
+                       
+            geoJsonPointFeatures.features.push(Object.assign({},centroid));
+            geoJsonPointFeaturesLabels.features.push(Object.assign({},centroid));
 
         }
     }
@@ -145,8 +155,8 @@ function addDiseaseToLayer(_data){
     //create highlight style, with darker color and larger radius
     function highlightStyle(feature) {
         return {
-            radius: getRadius(feature.properties.size)+1.5,
-    	    fillColor: "#102040",
+            radius: getRadius(feature.properties.size,feature.properties.maxmin)+1.5,
+    	    fillColor: "#ffafca",
     	    color: "#116",
             weight: 1,
 	    opacity: 1,
@@ -179,12 +189,31 @@ function addDiseaseToLayer(_data){
 
     }
 
+
     function onEachLabel(feature, layer) {
         layer.on({
             mouseover: highlightLabel,
             mouseout: resetLabelHighlight,
             click : drillDown
         });   
+
+
+        //attach styles and popups to the marker layer
+        function highlightLabel(e) {
+            var layer = e.target;
+            layer = map.getLayer("ouUID",layer.feature.properties.ouUID)
+            var dotStyleHighlight = highlightStyle(layer.feature);
+            layer.setStyle(dotStyleHighlight);
+            if (!L.Browser.ie && !L.Browser.opera) {
+                layer.bringToFront();
+            }
+        }
+        function resetLabelHighlight(e) {
+            var layer = e.target;
+            layer = map.getLayer("ouUID",layer.feature.properties.ouUID)
+            var dotStyleDefault = style(layer.feature);
+            layer.setStyle(dotStyleDefault);
+        }
     }
 
     function getColor(y) {
@@ -196,17 +225,21 @@ function addDiseaseToLayer(_data){
             '#D04030';
     }
 
-    function getRadius(y) {
+    function getRadius(y,maxmin) {
+
+        var scale = scaleLinear()        
+            .domain([maxmin.min,maxmin.max])
+            .range([8,30]);
 
         var r = Math.sqrt(y / Math.PI)
-       // console.log(scale(y));
-        return r;
+        //console.log(scale(y));
+        return scale(y);
     }
 
     function style(feature) {
         return {
-            radius: getRadius(feature.properties.size),
-            fillColor: getColor(1940),
+            radius: getRadius(feature.properties.size,feature.properties.maxmin),
+            fillColor:"#ef99b6",
             color: "#000",
             weight: 1,
             opacity: 0,
@@ -227,7 +260,7 @@ function addDiseaseToLayer(_data){
         
         var labelIcon =L.divIcon({
             className:'label',
-            html:'<i>'+feature.properties.size+'</i>',
+            html:'<i className="label">'+feature.properties.size+'</i>',
             iconSize :null,
             iconAnchor: [17,7.5]
         })
@@ -238,13 +271,16 @@ function addDiseaseToLayer(_data){
 
         });
     }
-    map.addGeoJson(geoJsonPointFeaturesLabels,pointToLayerLabel,null,null);
-    var spotLayer = map.addGeoJson(geoJsonPointFeatures,pointToLayer,null,null);
-
+    map.addGeoJson(geoJsonPointFeaturesLabels,pointToLayerLabel,null,onEachLabel);
+    var spotLayer = map.addGeoJson(geoJsonPointFeatures,pointToLayer,null,onEachDot);
     map.getMap().fitBounds(spotLayer.getBounds());
 
-
+    //addLegend(map.getMap(),maxmin)
 }
+
+ function zoomToFeature(e) {
+        map.getMap().fitBounds(e.target.getBounds());
+    }
 
 function setBoundaryLayers(level,parent){
 
@@ -253,7 +289,7 @@ function setBoundaryLayers(level,parent){
                   opacity: 0.75,
                   fillColor: "white",
                   fillOpacity: 0,
-                  weight : 2
+                  weight : 1.5
                   //                  dashArray: '5, 5',
 
                 }
@@ -278,7 +314,6 @@ function setBoundaryLayers(level,parent){
 
             }else{
                 addOrgUnits(getFeatureSetFromOus(response.organisationUnits),style);
-                ouFetched(response.organisationUnits)
             }
         })
     }
@@ -290,7 +325,7 @@ function setBoundaryLayers(level,parent){
         function highlightStyle(feature) {
             return {
                 //  radius: getRadius(feature.properties.size)+1.5,
-    	        fillColor: "#102040",
+    	        fillColor: "#ffec63",
     	        color: "#116",
                 weight: 1,
 	        opacity: 1,
@@ -317,22 +352,53 @@ function setBoundaryLayers(level,parent){
             layer.on({
                 mouseover: highlightOU,
                 mouseout: resetOUHighlight,
-                click : drillDown
+                click : zoomToFeature
             });
+
         }
         var pointToLayer = function(feature, latlng) {
             feature.properties.style = style;
         };
 
-   //    map.addGeoJson(geoJson,null,style,onEachOU)
-    map.getMap().fitBounds( map.addGeoJson(geoJson,null,style,onEachOU).getBounds());
+   //   map.addGeoJson(geoJson,null,style,onEachOU)
+        map.getMap().fitBounds( map.addGeoJson(geoJson.geoJsonPolygonFeatures,null,style,onEachOU).getBounds());
+      //  addOULabels(geoJson.geoJsonLabelFeatures)
 
+        ouFetched();
+
+        
     }
 
+function addOULabels(geoJson){
+
+   var pointToLayerLabel = function(feature, latlng) {
+       var name =null;
+       
+       if (currentSelectionOUMap[feature.properties.ouUID]){
+           name = currentSelectionOUMap[feature.properties.ouUID].name
+       }
+
+       if (!name){debugger}
+        var labelIcon =L.divIcon({
+            className:'ouLabel',
+            html:'<i className="ouLabel">'+name+'</i>',
+            iconSize :null,
+            iconAnchor: [15,15]
+        })
+
+        return L.marker(latlng,{
+            icon : labelIcon          
+        });
+    }
+
+    map.addGeoJson(geoJson,pointToLayerLabel,null,null);
+
+}
     function getFeatureSetFromOus(ous){
 
         // a GeoJSON multipolygon
         var geoJsonPolygonFeatures = [];
+        var geoJsonLabelFeatures = [];
 
         var ouCoords = [];
         for (var key in ous){
@@ -342,8 +408,13 @@ function setBoundaryLayers(level,parent){
 
                 var co = coords[getIndex(coords)];
                 var centroid = mUtility.getPolygonCentroid(co);
+                centroid.properties.ouUID =ous[key].id;
+                centroid.properties.layerId ="ou";
+
                 orgUnitUIDWiseCentroidMap[ous[key].id] = centroid;
-                
+                currentSelectionOUMap[ous[key].id] = ous[key];
+                currentSelectionOUNames = currentSelectionOUNames + ous[key].id + ";"
+
                 var poly = {
                     "type": "Feature",
                     "properties": 
@@ -359,10 +430,13 @@ function setBoundaryLayers(level,parent){
                 }
 
                 geoJsonPolygonFeatures.push(poly);
-                ouCoords.push(co);
+                geoJsonLabelFeatures.push(Object.assign({},centroid));
+
+               // ouCoords.push(co);
             }
         }
-        return geoJsonPolygonFeatures;
+        return {geoJsonPolygonFeatures:geoJsonPolygonFeatures,
+                geoJsonLabelFeatures:geoJsonLabelFeatures};
     }
 
     function getIndex(array){
@@ -379,3 +453,31 @@ function setBoundaryLayers(level,parent){
 
 }
 
+  function getRadius(y,maxmin) {
+
+        var scale = scaleLinear()        
+            .domain([maxmin.min,maxmin.max])
+            .range([8,30]);
+
+        var r = Math.sqrt(y / Math.PI)
+        //console.log(scale(y));
+        return scale(y);
+    }
+
+
+function addLegend(map,maxmin){
+    var legend = L.control({position: 'bottomright'});
+
+    legend.onAdd = function (map) {
+
+	var div = L.DomUtil.create('div', 'info legend');
+        var height = 15,width=15;
+       // var height1 = 40,width1=40;
+        var html = '<i class="circle" style="border-radius:100%; width:20px;height:20px;">'+2+'</i>'
+        div.innerHTML = html;
+	return div;
+    };
+
+    legend.addTo(map);
+
+}
