@@ -79,27 +79,31 @@
       <div class="hidden-print">
         <label><h2>Super IDSP+ </h2></label>
 
-<select id="selectDE" onchange="deSelected(this);">
-</select>
+        <select id="selectDE" onchange="deSelected(this);">
+        </select>
 
         <input class="btn-danger" type="button" value="Reset" onclick="reset();"/>
 
       </div>
+<!--
+      <div id="tabs">
+        <ul>
+          <li><a href="#tabs-1">Basic</a></li>
+          <li><a href="#tabs-2">HeatMap </a></li>
+        </ul>
+        <div id="tabs-1">
+          <div id="mapid" style="height: 460px ;width:100%;"></div>
+        </div>
+        <div id="tabs-2">
+          <div id="map-heat" style="height: 460px ;width:100%;"></div>
+        </div>
+      </div>
+-->
 
-<div id="tabs">
-  <ul>
-    <li><a href="#tabs-1">Basic</a></li>
-    <li><a href="#tabs-2">HeatMap </a></li>
-  </ul>
-  <div id="tabs-1">
-            <div id="mapid" style="height: 460px ;width:100%;"></div>
-  </div>
-  <div id="tabs-2">
-            <div id="map-heat" style="height: 460px ;width:100%;"></div>
-  </div>
+          <div id="mapid" style="display:inline-block;height: 460px ;width:47%;"></div>
+          <div id="map-heat" style="display:inline-block;height: 460px ;width:47%;"></div>
 
-</div>
-
+ 
       <div id="requestStats"></div>
       <div id="dataTable"></div>
 
