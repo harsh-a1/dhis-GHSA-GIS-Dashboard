@@ -1,0 +1,105 @@
+{
+  "_args": [
+    [
+      {
+        "name": "leaflet.heat",
+        "raw": "leaflet.heat",
+        "rawSpec": "",
+        "scope": null,
+        "spec": "latest",
+        "type": "tag"
+      },
+      "/home/harsh/DHIS2_HOME/apps/dhis-GHSA-GIS-Dashboard"
+    ]
+  ],
+  "_from": "leaflet.heat@latest",
+  "_id": "leaflet.heat@0.2.0",
+  "_inCache": true,
+  "_installable": true,
+  "_location": "/leaflet.heat",
+  "_nodeVersion": "0.12.7",
+  "_npmUser": {
+    "email": "agafonkin@gmail.com",
+    "name": "mourner"
+  },
+  "_npmVersion": "2.14.4",
+  "_phantomChildren": {},
+  "_requested": {
+    "name": "leaflet.heat",
+    "raw": "leaflet.heat",
+    "rawSpec": "",
+    "scope": null,
+    "spec": "latest",
+    "type": "tag"
+  },
+  "_requiredBy": [
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/leaflet.heat/-/leaflet.heat-0.2.0.tgz",
+  "_shasum": "109d8cf586f0adee41f05aff031e27a77fecc229",
+  "_shrinkwrap": null,
+  "_spec": "leaflet.heat",
+  "_where": "/home/harsh/DHIS2_HOME/apps/dhis-GHSA-GIS-Dashboard",
+  "author": {
+    "name": "Vladimir Agafonkin"
+  },
+  "bugs": {
+    "url": "https://github.com/Leaflet/Leaflet.heat/issues"
+  },
+  "dependencies": {},
+  "description": "A tiny and fast Leaflet heatmap plugin.",
+  "devDependencies": {
+    "simpleheat": "~0.2.0",
+    "uglify-js": "~2.4.15"
+  },
+  "directories": {},
+  "dist": {
+    "shasum": "109d8cf586f0adee41f05aff031e27a77fecc229",
+    "tarball": "https://registry.npmjs.org/leaflet.heat/-/leaflet.heat-0.2.0.tgz"
+  },
+  "gitHead": "5eaa88041c0664c03b3051b34686bc18703988b6",
+  "homepage": "https://github.com/Leaflet/Leaflet.heat",
+  "jshintConfig": {
+    "browser": true,
+    "camelcase": true,
+    "curly": true,
+    "eqeqeq": true,
+    "globals": {
+      "L": true,
+      "simpleheat": true
+    },
+    "noempty": true,
+    "nonbsp": true,
+    "quotmark": "single",
+    "trailing": true,
+    "undef": true,
+    "unused": true
+  },
+  "keywords": [
+    "heatmap",
+    "canvas",
+    "visualization",
+    "gis",
+    "leaflet",
+    "plugin"
+  ],
+  "main": "dist/leaflet-heat.js",
+  "maintainers": [
+    {
+      "email": "agafonkin@gmail.com",
+      "name": "mourner"
+    }
+  ],
+  "name": "leaflet.heat",
+  "optionalDependencies": {},
+  "readme": "ERROR: No README data found!",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/Leaflet/Leaflet.heat.git"
+  },
+  "scripts": {
+    "prepublish": "uglifyjs node_modules/simpleheat/simpleheat.js src/HeatLayer.js -c -m --comments /Vladimir/ -o dist/leaflet-heat.js",
+    "test": "jshint src"
+  },
+  "version": "0.2.0"
+}

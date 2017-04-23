@@ -16,6 +16,15 @@ module.exports = {
     node:{
       fs:'empty'
     },
+ resolve: {
+  root: [
+    path.resolve(__dirname, '../node_modules')
+  ],
+  alias: {
+    'jquery-ui': 'jquery-ui-dist/jquery-ui.js'
+  },
+  extensions: ['', '.js', '.json'],
+},
     externals: [
         {'./cptable':'var cptable'},
         {'./jszip':'jszip'}

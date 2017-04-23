@@ -61,6 +61,9 @@
 
     <link type="text/css" rel="stylesheet" media="screen" href="styles/style.css">
     <link type="text/css" rel="stylesheet" media="screen" href="styles/main.css">
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+
+    <script type="text/javascript" src="scripts/lib/leaflet.heat/dist/leaflet-heat.js"></script>
 
     <script type="text/javascript" src="angular-app.js"></script>
 
@@ -74,32 +77,34 @@
     <div ng-view></div>
     <div id="mainContainer">
       <div class="hidden-print">
-        <label><h2>Disease Prevalence</h2></label>
-<!--
-        <label class="right">Moving Period Range(in days):<b><i id = "movingPeriod"> 5 </i></b></label>
+        <label><h2>Super IDSP+ </h2></label>
 
-        <br>
-        Start Date: <input id="sdate" type="date"></input>
-        End Date: <input id="edate" type="date"></input>
-
-        Cluster Distance(Km):
-        <input type="number" id="c_dist" value="5"></input>
-        Threshold:
-        <input type="number" id="threshold" value="3"></input>
-        <input class="btn-info right" type="button" value="Refresh" onclick="refresh();"/>
-        <br><br> -->
 <select id="selectDE" onchange="deSelected(this);">
 </select>
 
         <input class="btn-danger" type="button" value="Reset" onclick="reset();"/>
 
       </div>
-            <div id="mapid" style="height: 500px ;width:80%;"></div>
+
+<div id="tabs">
+  <ul>
+    <li><a href="#tabs-1">Basic</a></li>
+    <li><a href="#tabs-2">Test </a></li>
+  </ul>
+  <div id="tabs-1">
+            <div id="mapid" style="height: 460px ;width:100%;"></div>
+  </div>
+  <div id="tabs-2">
+            <div id="map-heat" style="height: 460px ;width:100%;"></div>
+  </div>
+
+</div>
 
       <div id="requestStats"></div>
       <div id="dataTable"></div>
 
     </div>
+
 
 
 
