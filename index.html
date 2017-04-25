@@ -77,11 +77,13 @@
     <div ng-view></div>
     <div id="mainContainer">
       <div class="hidden-print">
-        <label><h2>IDSP GIS Dashboard </h2></label>
+        <label><h2>IDSP GIS Dashboard </h2></label></br>
 
+        Select Condition:
         <select id="selectDE" onchange="deSelected(this);">
         </select>
 
+        Period : <input type="text" id="period" value="LAST_YEAR"/>
         <input class="btn-danger" type="button" value="Reset" onclick="reset();"/>
 
       </div>

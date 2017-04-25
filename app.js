@@ -194,17 +194,18 @@ function getCustomDivIcon(background){
 // Gets fired if ou are successfully gotten from API
 function ouFetched(ous){
     
-    getData(currentSelectionOUUIDs);
+    var period = $('#period').val();
+    getData(currentSelectionOUUIDs,period);
 }
 
 
-function getData(){
+function getData(currentSelectionOUUIDs,period){
 
     ajax.request({
         type: "GET",
         async: true,
         contentType: "application/json",
-        url: "../../analytics/dataValueSet.json?dimension=dx:"+currentDiseaseDeUID+"&dimension=ou:"+currentSelectionOUUIDs+"&dimension=pe:LAST_YEAR&displayProperty=NAME"
+        url: "../../analytics/dataValueSet.json?dimension=dx:"+currentDiseaseDeUID+"&dimension=ou:"+currentSelectionOUUIDs+"&dimension=pe:"+period+"&displayProperty=NAME"
     },function(error,response){
         if (error){
 

@@ -251,16 +251,17 @@
 	// Gets fired if ou are successfully gotten from API
 	function ouFetched(ous) {
 
-	    getData(currentSelectionOUUIDs);
+	    var period = (0, _jquery2.default)('#period').val();
+	    getData(currentSelectionOUUIDs, period);
 	}
 
-	function getData() {
+	function getData(currentSelectionOUUIDs, period) {
 
 	    _ajaxWrapper2.default.request({
 	        type: "GET",
 	        async: true,
 	        contentType: "application/json",
-	        url: "../../analytics/dataValueSet.json?dimension=dx:" + currentDiseaseDeUID + "&dimension=ou:" + currentSelectionOUUIDs + "&dimension=pe:LAST_YEAR&displayProperty=NAME"
+	        url: "../../analytics/dataValueSet.json?dimension=dx:" + currentDiseaseDeUID + "&dimension=ou:" + currentSelectionOUUIDs + "&dimension=pe:" + period + "&displayProperty=NAME"
 	    }, function (error, response) {
 	        if (error) {} else {
 
