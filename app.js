@@ -19,11 +19,12 @@ import {scaleLinear} from "d3-scale";
 var map,heatmap;
 var api = new dhis2API();
 var orgUnitUIDWiseCentroidMap = [];
-var currentDiseaseDeUID = "F77LnLT0wTN";
-var currentSelectionOUNames = "";
+var currentDiseaseDeUID = "";
+var currentSelectionOUUIDs = "";
 var currentSelectionOUMap = [];
-var currentSelectionOUName ="WljvC4Ev45Y"
+var currentSelectionOUUID =""
 var currentSelectionOULevel ="2"
+var currentOUPolygonFeatures;
 
 $('document').ready(function(){
 
@@ -31,67 +32,36 @@ $('document').ready(function(){
         $( "#tabs" ).tabs();
     } );
 
-    map = new dhis2Map();
-    heatmap = new dhis2Map();
+    fetchMetadata();
 
-    map.init("mapid",[13.23521,80.3332],5);
-    heatmap.init("map-heat",[13.23521,80.3332],5);
+    function init(){
+        map = new dhis2Map();
+        heatmap = new dhis2Map();
 
-    setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUName);
-    setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUName);
-    //setBoundaryLayers(heatmap,3,currentSelectionOUName,1);
-    
-    fetchDEs();
+        map.init("mapid",[0,0],5);
+        heatmap.init("map-heat",[0,0],5);
 
-})
+        setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID);
+        setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);
+        //setBoundaryLayers(heatmap,3,currentSelectionOUUID,1);
+        
+    }
+    function fetchMetadata(){
 
-window.reset = function(){
-    clearData();
-    currentSelectionOUName ="WljvC4Ev45Y"
-    currentSelectionOULevel ="2"
-    setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUName);
-    setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUName);
+        ajax.request({
+            type: "GET",
+            async: true,
+            contentType: "application/json",
+            url: "../../organisationUnits?fields=id,name&filter=level:eq:1&paging=false"
+        },function(error,response){
+                                   if (error){
 
-}
-window.deSelected = function(elem){
-
-    currentDiseaseDeUID = elem.selectedOptions[0].value;
-    clearData();
-    setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUName);
-    setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUName);
-
-}
-
-function clearData(){
-    map.clearLayers("layerId","custom");
-    map.clearLayers("layerId","ou");
-
-    heatmap.clearLayers("layerId","custom");
-    heatmap.clearLayers("layerId","ou");
-
-    currentSelectionOUNames = [];
-    currentSelectionOUMap = [];
-    
-}
-
-
-function drillDown(e){
-    
-    clearData();
-    currentSelectionOUNames = [];
-
-    currentSelectionOULevel =e.target.feature.properties.level+1;
-    currentSelectionOUName =e.target.feature.properties.ouUID;
-    setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUName); 
-    setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUName);   
-  
-}
-
-// Gets fired if ou are successfully gotten from API
-function ouFetched(ous){
-    
-    getData(currentSelectionOUNames);
-}
+                                   }else{
+                                       currentSelectionOUUID = response.organisationUnits[0].id;
+                                          fetchDEs();
+ 
+                                   }
+                                  })
 
 function fetchDEs(){
     ajax.request({
@@ -113,11 +83,120 @@ function fetchDEs(){
                 el.value = opt.id;
                 select.appendChild(el);
             }
+            
+            currentDiseaseDeUID = options[0].id;
+            init();
         }
     })
 
 
 }
+
+    }
+
+})
+
+
+window.reset = function(){
+    clearData();
+    currentSelectionOUUID ="WljvC4Ev45Y"
+    currentSelectionOULevel ="2"
+    setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID);
+    setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);
+
+}
+window.deSelected = function(elem){
+
+    currentDiseaseDeUID = elem.selectedOptions[0].value;
+    clearData();
+    setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID);
+    setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);
+
+}
+
+function clearData(){
+    map.clearLayers("layerId","custom");
+    map.clearLayers("layerId","ou");
+
+    heatmap.clearLayers("layerId","custom");
+    heatmap.clearLayers("layerId","ou");
+
+    currentSelectionOUUIDs = [];
+    currentSelectionOUMap = [];
+    
+}
+
+
+function drillDown(e){
+    
+    if (currentSelectionOULevel == 3){
+        showRandomPoints(e.target.feature.properties.ouUID,e.target.feature.properties.size);
+        return;        
+    }
+
+    clearData();
+    currentSelectionOUUIDs = [];
+
+    currentSelectionOULevel =e.target.feature.properties.level+1;
+    currentSelectionOUUID =e.target.feature.properties.ouUID;
+    setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID); 
+    setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);   
+    
+}
+
+function showRandomPoints(ouUID,value){
+
+    var polygon;
+    for (var i=0;i<currentOUPolygonFeatures.length;i++){
+        var ou = currentOUPolygonFeatures[i].properties.ouUID;
+        if (ou == ouUID){
+            polygon = currentOUPolygonFeatures[i];
+            break;
+        }
+    }
+
+    var randomPoints = mUtility.getRandomPoints(polygon,value);
+    
+    for (var i=0;i<randomPoints.length;i++){
+        randomPoints[i].properties.layerId = "custom";
+    }
+
+    var pointToLayer = function(feature, latlng) {
+        
+        var icon = getCustomDivIcon("yellow");
+        return L.marker(latlng, {
+            // icon: icon
+        });
+    }
+
+    function onEachDot(feature, layer) {
+        
+        layer.bindPopup('<label>Individual Case Reported from Facility-'+Math.round(Math.random()*5000)+'</label>');
+
+    }
+
+    map.addGeoJson(randomPoints,pointToLayer,null,onEachDot);
+    
+   
+
+
+}
+
+
+function getCustomDivIcon(background){
+
+    return L.divIcon({
+        className : 'alert-icon '+'',
+        html:'<i class="alert-icon"  style="background: '+background+'"></i>'
+    });
+}
+
+// Gets fired if ou are successfully gotten from API
+function ouFetched(ous){
+    
+    getData(currentSelectionOUUIDs);
+}
+
 
 function getData(){
 
@@ -125,7 +204,7 @@ function getData(){
         type: "GET",
         async: true,
         contentType: "application/json",
-        url: "../../analytics/dataValueSet.json?dimension=dx:"+currentDiseaseDeUID+"&dimension=ou:"+currentSelectionOUNames+"&dimension=pe:LAST_YEAR&displayProperty=NAME"
+        url: "../../analytics/dataValueSet.json?dimension=dx:"+currentDiseaseDeUID+"&dimension=ou:"+currentSelectionOUUIDs+"&dimension=pe:LAST_YEAR&displayProperty=NAME"
     },function(error,response){
         if (error){
 
@@ -149,14 +228,15 @@ function addHeatMap(hmap,_data){
         
         var centroid = orgUnitUIDWiseCentroidMap[data[i].orgUnit];
         heatmapDataFormat.push([centroid.geometry.coordinates[1],
-                              centroid.geometry.coordinates[0],
-                              data[i].value]);
+                                centroid.geometry.coordinates[0],
+                                data[i].value]);
     }
     var heat = L.heatLayer(heatmapDataFormat, {radius: 25}).addTo(hmap.getMap());
     heat.feature = {
         properties : {layerId : "custom"}
     }
 
+    $('#heatmaplabel').val("asdad");
 }
 function addDiseaseToLayer(_data){
     
@@ -196,8 +276,8 @@ function addDiseaseToLayer(_data){
     function highlightStyle(feature) {
         return {
             radius: getRadius(feature.properties.size,feature.properties.maxmin)+1.5,
-        fillColor: "#ffafca",
-   // 	    fillColor: "#ddacca",
+            fillColor: "#ffafca",
+            // 	    fillColor: "#ddacca",
     	    color: "#116",
             weight: 1,
 	    opacity: 1,
@@ -280,8 +360,8 @@ function addDiseaseToLayer(_data){
     function style(feature) {
         return {
             radius: getRadius(feature.properties.size,feature.properties.maxmin),
-        //    fillColor:"#f4b5ef",
-            fillColor:"#AFEEEE",
+            fillColor:"#f4b5ef",
+            //   fillColor:"#AFEEEEm",
             color: "#000",
             weight: 1,
             opacity: 0,
@@ -304,7 +384,7 @@ function addDiseaseToLayer(_data){
             className:'label',
             html:'<i className="label">'+feature.properties.size+'</i>',
             iconSize :null,
-            iconAnchor: [17,7.5]
+            iconAnchor: [14,8]
         })
 
         return L.marker(latlng,{
@@ -317,7 +397,6 @@ function addDiseaseToLayer(_data){
     var spotLayer = map.addGeoJson(geoJsonPointFeatures,pointToLayer,null,onEachDot);
     //map.getMap().fitBounds(spotLayer.getBounds());
 
-    //addLegend(map.getMap(),maxmin)
 }
 
 function zoomToFeature(e) {
@@ -400,7 +479,7 @@ function setBoundaryLayers(map,level,parent,parentLevel){
             layer.on({
                 mouseover: highlightOU,
                 mouseout: resetOUHighlight,
-                click : zoomToFeature
+              //  click : zoomToFeature
             });
 
         }
@@ -410,11 +489,14 @@ function setBoundaryLayers(map,level,parent,parentLevel){
 
         //   map.addGeoJson(geoJson,null,style,onEachOU)
         map.getMap().fitBounds( map.addGeoJson(geoJson.geoJsonPolygonFeatures,null,style,onEachOU).getBounds());
-          addOULabels(geoJson.geoJsonLabelFeatures)
 
-        ouFetched();
+        if (map != heatmap){
+            addOULabels(geoJson.geoJsonLabelFeatures)
+        }
 
-        
+        currentOUPolygonFeatures = geoJson.geoJsonPolygonFeatures;
+
+        ouFetched();        
     }
 
     function addOULabels(geoJson){
@@ -431,7 +513,7 @@ function setBoundaryLayers(map,level,parent,parentLevel){
                 className:'ouLabel',
                 html:'<i className="ouLabel">'+name+'</i>',
                 iconSize :null,
-                iconAnchor: [15,15]
+                iconAnchor: [15,25]
             })
 
             return L.marker(latlng,{
@@ -461,7 +543,7 @@ function setBoundaryLayers(map,level,parent,parentLevel){
 
                 orgUnitUIDWiseCentroidMap[ous[key].id] = centroid;
                 currentSelectionOUMap[ous[key].id] = ous[key];
-                currentSelectionOUNames = currentSelectionOUNames + ous[key].id + ";"
+                currentSelectionOUUIDs = currentSelectionOUUIDs + ous[key].id + ";"
 
                 var poly = {
                     "type": "Feature",
@@ -513,15 +595,15 @@ function getRadius(y,maxmin) {
 }
 
 
-function addLegend(map,maxmin){
-    var legend = L.control({position: 'bottomright'});
+function addLegend(map,label){
+    var legend = L.control({position: 'topleft'});
 
     legend.onAdd = function (map) {
 
 	var div = L.DomUtil.create('div', 'info legend');
         var height = 15,width=15;
         // var height1 = 40,width1=40;
-        var html = '<i class="circle" style="border-radius:100%; width:20px;height:20px;">'+2+'</i>'
+        var html = '<label>'+label+'</label>'
         div.innerHTML = html;
 	return div;
     };

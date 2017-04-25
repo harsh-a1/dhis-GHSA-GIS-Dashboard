@@ -80,13 +80,13 @@
 
 	var _mapUtilities2 = _interopRequireDefault(_mapUtilities);
 
-	var _components = __webpack_require__(476);
+	var _components = __webpack_require__(482);
 
 	var _utilityFunctions = __webpack_require__(186);
 
 	var _utilityFunctions2 = _interopRequireDefault(_utilityFunctions);
 
-	var _d3Scale = __webpack_require__(477);
+	var _d3Scale = __webpack_require__(483);
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -98,11 +98,12 @@
 	var map, heatmap;
 	var api = new _dhis2API2.default();
 	var orgUnitUIDWiseCentroidMap = [];
-	var currentDiseaseDeUID = "F77LnLT0wTN";
-	var currentSelectionOUNames = "";
+	var currentDiseaseDeUID = "";
+	var currentSelectionOUUIDs = "";
 	var currentSelectionOUMap = [];
-	var currentSelectionOUName = "WljvC4Ev45Y";
+	var currentSelectionOUUID = "";
 	var currentSelectionOULevel = "2";
+	var currentOUPolygonFeatures;
 
 	(0, _jquery2.default)('document').ready(function () {
 
@@ -110,32 +111,73 @@
 	        (0, _jquery2.default)("#tabs").tabs();
 	    });
 
-	    map = new _map2.default();
-	    heatmap = new _map2.default();
+	    fetchMetadata();
 
-	    map.init("mapid", [13.23521, 80.3332], 5);
-	    heatmap.init("map-heat", [13.23521, 80.3332], 5);
+	    function init() {
+	        map = new _map2.default();
+	        heatmap = new _map2.default();
 
-	    setBoundaryLayers(map, currentSelectionOULevel, currentSelectionOUName);
-	    setBoundaryLayers(heatmap, currentSelectionOULevel, currentSelectionOUName);
-	    //setBoundaryLayers(heatmap,3,currentSelectionOUName,1);
+	        map.init("mapid", [0, 0], 5);
+	        heatmap.init("map-heat", [0, 0], 5);
 
-	    fetchDEs();
+	        setBoundaryLayers(map, currentSelectionOULevel, currentSelectionOUUID);
+	        setBoundaryLayers(heatmap, currentSelectionOULevel, currentSelectionOUUID);
+	        //setBoundaryLayers(heatmap,3,currentSelectionOUUID,1);
+	    }
+	    function fetchMetadata() {
+
+	        _ajaxWrapper2.default.request({
+	            type: "GET",
+	            async: true,
+	            contentType: "application/json",
+	            url: "../../organisationUnits?fields=id,name&filter=level:eq:1&paging=false"
+	        }, function (error, response) {
+	            if (error) {} else {
+	                currentSelectionOUUID = response.organisationUnits[0].id;
+	                fetchDEs();
+	            }
+	        });
+
+	        function fetchDEs() {
+	            _ajaxWrapper2.default.request({
+	                type: "GET",
+	                async: true,
+	                contentType: "application/json",
+	                url: "../..//dataElements?fields=id,name&filter=domainType:eq:AGGREGATE&paging=false"
+	            }, function (error, response) {
+	                if (error) {} else {
+
+	                    var select = document.getElementById("selectDE");
+	                    var options = response.dataElements;
+	                    for (var i = 0; i < options.length; i++) {
+	                        var opt = options[i];
+	                        var el = document.createElement("option");
+	                        el.textContent = opt.name;
+	                        el.value = opt.id;
+	                        select.appendChild(el);
+	                    }
+
+	                    currentDiseaseDeUID = options[0].id;
+	                    init();
+	                }
+	            });
+	        }
+	    }
 	});
 
 	window.reset = function () {
 	    clearData();
-	    currentSelectionOUName = "WljvC4Ev45Y";
+	    currentSelectionOUUID = "WljvC4Ev45Y";
 	    currentSelectionOULevel = "2";
-	    setBoundaryLayers(map, currentSelectionOULevel, currentSelectionOUName);
-	    setBoundaryLayers(heatmap, currentSelectionOULevel, currentSelectionOUName);
+	    setBoundaryLayers(map, currentSelectionOULevel, currentSelectionOUUID);
+	    setBoundaryLayers(heatmap, currentSelectionOULevel, currentSelectionOUUID);
 	};
 	window.deSelected = function (elem) {
 
 	    currentDiseaseDeUID = elem.selectedOptions[0].value;
 	    clearData();
-	    setBoundaryLayers(map, currentSelectionOULevel, currentSelectionOUName);
-	    setBoundaryLayers(heatmap, currentSelectionOULevel, currentSelectionOUName);
+	    setBoundaryLayers(map, currentSelectionOULevel, currentSelectionOUUID);
+	    setBoundaryLayers(heatmap, currentSelectionOULevel, currentSelectionOUUID);
 	};
 
 	function clearData() {
@@ -145,47 +187,71 @@
 	    heatmap.clearLayers("layerId", "custom");
 	    heatmap.clearLayers("layerId", "ou");
 
-	    currentSelectionOUNames = [];
+	    currentSelectionOUUIDs = [];
 	    currentSelectionOUMap = [];
 	}
 
 	function drillDown(e) {
 
+	    if (currentSelectionOULevel == 3) {
+	        showRandomPoints(e.target.feature.properties.ouUID, e.target.feature.properties.size);
+	        return;
+	    }
+
 	    clearData();
-	    currentSelectionOUNames = [];
+	    currentSelectionOUUIDs = [];
 
 	    currentSelectionOULevel = e.target.feature.properties.level + 1;
-	    currentSelectionOUName = e.target.feature.properties.ouUID;
-	    setBoundaryLayers(map, currentSelectionOULevel, currentSelectionOUName);
-	    setBoundaryLayers(heatmap, currentSelectionOULevel, currentSelectionOUName);
+	    currentSelectionOUUID = e.target.feature.properties.ouUID;
+	    setBoundaryLayers(map, currentSelectionOULevel, currentSelectionOUUID);
+	    setBoundaryLayers(heatmap, currentSelectionOULevel, currentSelectionOUUID);
+	}
+
+	function showRandomPoints(ouUID, value) {
+
+	    var polygon;
+	    for (var i = 0; i < currentOUPolygonFeatures.length; i++) {
+	        var ou = currentOUPolygonFeatures[i].properties.ouUID;
+	        if (ou == ouUID) {
+	            polygon = currentOUPolygonFeatures[i];
+	            break;
+	        }
+	    }
+
+	    var randomPoints = _mapUtilities2.default.getRandomPoints(polygon, value);
+
+	    for (var i = 0; i < randomPoints.length; i++) {
+	        randomPoints[i].properties.layerId = "custom";
+	    }
+
+	    var pointToLayer = function pointToLayer(feature, latlng) {
+
+	        var icon = getCustomDivIcon("yellow");
+	        return L.marker(latlng, {
+	            // icon: icon
+	        });
+	    };
+
+	    function onEachDot(feature, layer) {
+
+	        layer.bindPopup('<label>Individual Case Reported from Facility-' + Math.round(Math.random() * 5000) + '</label>');
+	    }
+
+	    map.addGeoJson(randomPoints, pointToLayer, null, onEachDot);
+	}
+
+	function getCustomDivIcon(background) {
+
+	    return L.divIcon({
+	        className: 'alert-icon ' + '',
+	        html: '<i class="alert-icon"  style="background: ' + background + '"></i>'
+	    });
 	}
 
 	// Gets fired if ou are successfully gotten from API
 	function ouFetched(ous) {
 
-	    getData(currentSelectionOUNames);
-	}
-
-	function fetchDEs() {
-	    _ajaxWrapper2.default.request({
-	        type: "GET",
-	        async: true,
-	        contentType: "application/json",
-	        url: "../..//dataElements?fields=id,name&filter=domainType:eq:AGGREGATE&paging=false"
-	    }, function (error, response) {
-	        if (error) {} else {
-
-	            var select = document.getElementById("selectDE");
-	            var options = response.dataElements;
-	            for (var i = 0; i < options.length; i++) {
-	                var opt = options[i];
-	                var el = document.createElement("option");
-	                el.textContent = opt.name;
-	                el.value = opt.id;
-	                select.appendChild(el);
-	            }
-	        }
-	    });
+	    getData(currentSelectionOUUIDs);
 	}
 
 	function getData() {
@@ -194,7 +260,7 @@
 	        type: "GET",
 	        async: true,
 	        contentType: "application/json",
-	        url: "../../analytics/dataValueSet.json?dimension=dx:" + currentDiseaseDeUID + "&dimension=ou:" + currentSelectionOUNames + "&dimension=pe:LAST_YEAR&displayProperty=NAME"
+	        url: "../../analytics/dataValueSet.json?dimension=dx:" + currentDiseaseDeUID + "&dimension=ou:" + currentSelectionOUUIDs + "&dimension=pe:LAST_YEAR&displayProperty=NAME"
 	    }, function (error, response) {
 	        if (error) {} else {
 
@@ -221,6 +287,8 @@
 	    heat.feature = {
 	        properties: { layerId: "custom" }
 	    };
+
+	    (0, _jquery2.default)('#heatmaplabel').val("asdad");
 	}
 	function addDiseaseToLayer(_data) {
 
@@ -330,8 +398,8 @@
 	    function style(feature) {
 	        return {
 	            radius: getRadius(feature.properties.size, feature.properties.maxmin),
-	            //    fillColor:"#f4b5ef",
-	            fillColor: "#AFEEEE",
+	            fillColor: "#f4b5ef",
+	            //   fillColor:"#AFEEEEm",
 	            color: "#000",
 	            weight: 1,
 	            opacity: 0,
@@ -354,7 +422,7 @@
 	            className: 'label',
 	            html: '<i className="label">' + feature.properties.size + '</i>',
 	            iconSize: null,
-	            iconAnchor: [17, 7.5]
+	            iconAnchor: [14, 8]
 	        });
 
 	        return L.marker(latlng, {
@@ -365,8 +433,6 @@
 	    map.addGeoJson(geoJsonPointFeaturesLabels, pointToLayerLabel, null, onEachLabel);
 	    var spotLayer = map.addGeoJson(geoJsonPointFeatures, pointToLayer, null, onEachDot);
 	    //map.getMap().fitBounds(spotLayer.getBounds());
-
-	    //addLegend(map.getMap(),maxmin)
 	}
 
 	function zoomToFeature(e) {
@@ -444,8 +510,7 @@
 	        function onEachOU(feature, layer) {
 	            layer.on({
 	                mouseover: highlightOU,
-	                mouseout: resetOUHighlight,
-	                click: zoomToFeature
+	                mouseout: resetOUHighlight
 	            });
 	        }
 	        var pointToLayer = function pointToLayer(feature, latlng) {
@@ -454,7 +519,12 @@
 
 	        //   map.addGeoJson(geoJson,null,style,onEachOU)
 	        map.getMap().fitBounds(map.addGeoJson(geoJson.geoJsonPolygonFeatures, null, style, onEachOU).getBounds());
-	        addOULabels(geoJson.geoJsonLabelFeatures);
+
+	        if (map != heatmap) {
+	            addOULabels(geoJson.geoJsonLabelFeatures);
+	        }
+
+	        currentOUPolygonFeatures = geoJson.geoJsonPolygonFeatures;
 
 	        ouFetched();
 	    }
@@ -475,7 +545,7 @@
 	                className: 'ouLabel',
 	                html: '<i className="ouLabel">' + name + '</i>',
 	                iconSize: null,
-	                iconAnchor: [15, 15]
+	                iconAnchor: [15, 25]
 	            });
 
 	            return L.marker(latlng, {
@@ -504,7 +574,7 @@
 
 	                orgUnitUIDWiseCentroidMap[ous[key].id] = centroid;
 	                currentSelectionOUMap[ous[key].id] = ous[key];
-	                currentSelectionOUNames = currentSelectionOUNames + ous[key].id + ";";
+	                currentSelectionOUUIDs = currentSelectionOUUIDs + ous[key].id + ";";
 
 	                var poly = {
 	                    "type": "Feature",
@@ -553,8 +623,8 @@
 	    return scale(y);
 	}
 
-	function addLegend(map, maxmin) {
-	    var legend = L.control({ position: 'bottomright' });
+	function addLegend(map, label) {
+	    var legend = L.control({ position: 'topleft' });
 
 	    legend.onAdd = function (map) {
 
@@ -562,7 +632,7 @@
 	        var height = 15,
 	            width = 15;
 	        // var height1 = 40,width1=40;
-	        var html = '<i class="circle" style="border-radius:100%; width:20px;height:20px;">' + 2 + '</i>';
+	        var html = '<label>' + label + '</label>';
 	        div.innerHTML = html;
 	        return div;
 	    };
@@ -79700,7 +79770,7 @@
 
 	        L.easyPrint().addTo(map);
 
-	        //baseLayers.osm_bw.addTo(map);
+	        //  baseLayers.osm_bw.addTo(map);
 	        // baseLayers.osm.addTo(map);
 
 	        // var little = L.marker([13.23521,80.3332]).bindPopup('teshgghgft').addTo(map);
@@ -79787,9 +79857,11 @@
 
 	var _turf2 = _interopRequireDefault(_turf);
 
-	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+	var _randomPointsOnPolygon = __webpack_require__(476);
 
-	var _ = {};
+	var _randomPointsOnPolygon2 = _interopRequireDefault(_randomPointsOnPolygon);
+
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 	/***
 	    Param : {unique_id : "",
@@ -79798,7 +79870,7 @@
 
 	    return : GeoJson
 	***/
-
+	var _ = {};
 
 	function distance(lat1, lon1, lat2, lon2, unit) {
 
@@ -79859,6 +79931,13 @@
 	    var featureCollection = getFeatureCollection(graph, allNodesMap, threshold, clusterDist, labelMap);
 
 	    return featureCollection;
+	};
+
+	_.getRandomPoints = function (polygon, numberOfPoints) {
+
+	    var points = (0, _randomPointsOnPolygon2.default)(numberOfPoints, polygon);
+
+	    return points;
 	};
 
 	_.getPolygonCentroid = function (coords) {
@@ -111922,6 +112001,504 @@
 
 	'use strict';
 
+	var extent = __webpack_require__(477);
+	var featurecollection = __webpack_require__(479);
+	var inside = __webpack_require__(480);
+	var random = __webpack_require__(481);
+
+	/**
+	 * Takes a number and a feature and {@link Polygon} or {@link MultiPolygon} and returns {@link Points} that reside inside the polygon. The polygon can
+	 * be convex or concave. The function accounts for holes.
+	 *
+	 * * Given a {Number}, the number of points to be randomly generated.
+	 * * Given a {@link Polygon} or {@link MultiPolygon}, the boundary of the random points
+	 *
+	 *
+	 * @module turf-random-points-on-polygon
+	 * @category measurement
+	 * @param {Number} number of points to be generated
+	 * @param {Feature<(Polygon|MultiPolygon)>} polygon input polygon or multipolygon
+	 * @param {Object} [properties={}] properties to be appended to the point features
+	 * @param {Boolean} [fc=false] if true returns points as a {@link FeatureCollection}
+	 * @return {Array} || {FeatureCollection<Points>} an array or feature collection of the random points inside the polygon
+	**/
+
+	function randomPointsOnPolygon(number, polygon, properties, fc) {
+	  if (typeof properties === 'boolean') {
+	    fc = properties;
+	    properties = {};
+	  }
+
+	  if (number < 1) {
+	    return new Error('Number must be >= 1');
+	  }
+
+	  if(polygon.type !== 'Feature') {
+	    return new Error('Polygon parameter must be a Feature<(Polygon|MultiPolygon)>');
+
+	    if (polygon.geomtry.type !== 'Polygon' || polygon.geomtry.type !== 'MutliPolygon') {
+	      return new Error('Polygon parameter must be a Feature<(Polygon|MultiPolygon)>')
+	    }
+	  }
+
+	  if (this instanceof randomPointsOnPolygon) {
+	    return new randomPointsOnPolygon(number, polygon, properties);
+	  }
+
+	  properties = properties || {};
+	  fc = fc || false;
+	  var points = [];
+	  var bbox = extent(polygon);
+	  var count = Math.round(parseFloat(number));
+
+	  for (var i = 0; i <= count; i++) {
+	    if (i === count) {
+	      if (fc) {
+	        return featurecollection(points);
+	      }
+
+	      return points;
+	    }
+
+	    var point = random('point', 1, { bbox: bbox });
+
+	    if (inside(point.features[0], polygon) === false) {
+	      i = --i;
+	    }
+
+	    if (inside(point.features[0], polygon) === true) {
+	      point.features[0].properties = properties;
+	      points.push(point.features[0]);
+	    }
+	  }
+
+	}
+
+	module.exports = randomPointsOnPolygon;
+
+
+/***/ }),
+/* 477 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	var each = __webpack_require__(478).coordEach;
+
+	/**
+	 * Takes any {@link GeoJSON} object, calculates the extent of all input features, and returns a bounding box.
+	 *
+	 * @module turf/extent
+	 * @category measurement
+	 * @param {GeoJSON} input any valid GeoJSON Object
+	 * @return {Array<number>} the bounding box of `input` given
+	 * as an array in WSEN order (west, south, east, north)
+	 * @example
+	 * var input = {
+	 *   "type": "FeatureCollection",
+	 *   "features": [
+	 *     {
+	 *       "type": "Feature",
+	 *       "properties": {},
+	 *       "geometry": {
+	 *         "type": "Point",
+	 *         "coordinates": [114.175329, 22.2524]
+	 *       }
+	 *     }, {
+	 *       "type": "Feature",
+	 *       "properties": {},
+	 *       "geometry": {
+	 *         "type": "Point",
+	 *         "coordinates": [114.170007, 22.267969]
+	 *       }
+	 *     }, {
+	 *       "type": "Feature",
+	 *       "properties": {},
+	 *       "geometry": {
+	 *         "type": "Point",
+	 *         "coordinates": [114.200649, 22.274641]
+	 *       }
+	 *     }, {
+	 *       "type": "Feature",
+	 *       "properties": {},
+	 *       "geometry": {
+	 *         "type": "Point",
+	 *         "coordinates": [114.186744, 22.265745]
+	 *       }
+	 *     }
+	 *   ]
+	 * };
+	 *
+	 * var bbox = turf.extent(input);
+	 *
+	 * var bboxPolygon = turf.bboxPolygon(bbox);
+	 *
+	 * var resultFeatures = input.features.concat(bboxPolygon);
+	 * var result = {
+	 *   "type": "FeatureCollection",
+	 *   "features": resultFeatures
+	 * };
+	 *
+	 * //=result
+	 */
+	module.exports = function(layer) {
+	    var extent = [Infinity, Infinity, -Infinity, -Infinity];
+	    each(layer, function(coord) {
+	      if (extent[0] > coord[0]) extent[0] = coord[0];
+	      if (extent[1] > coord[1]) extent[1] = coord[1];
+	      if (extent[2] < coord[0]) extent[2] = coord[0];
+	      if (extent[3] < coord[1]) extent[3] = coord[1];
+	    });
+	    return extent;
+	};
+
+
+/***/ }),
+/* 478 */
+/***/ (function(module, exports) {
+
+	/**
+	 * Lazily iterate over coordinates in any GeoJSON object, similar to
+	 * Array.forEach.
+	 *
+	 * @param {Object} layer any GeoJSON object
+	 * @param {Function} callback a method that takes (value)
+	 * @param {boolean=} excludeWrapCoord whether or not to include
+	 * the final coordinate of LinearRings that wraps the ring in its iteration.
+	 * @example
+	 * var point = { type: 'Point', coordinates: [0, 0] };
+	 * coordEach(point, function(coords) {
+	 *   // coords is equal to [0, 0]
+	 * });
+	 */
+	function coordEach(layer, callback, excludeWrapCoord) {
+	  var i, j, k, g, geometry, stopG, coords,
+	    geometryMaybeCollection,
+	    wrapShrink = 0,
+	    isGeometryCollection,
+	    isFeatureCollection = layer.type === 'FeatureCollection',
+	    isFeature = layer.type === 'Feature',
+	    stop = isFeatureCollection ? layer.features.length : 1;
+
+	  // This logic may look a little weird. The reason why it is that way
+	  // is because it's trying to be fast. GeoJSON supports multiple kinds
+	  // of objects at its root: FeatureCollection, Features, Geometries.
+	  // This function has the responsibility of handling all of them, and that
+	  // means that some of the `for` loops you see below actually just don't apply
+	  // to certain inputs. For instance, if you give this just a
+	  // Point geometry, then both loops are short-circuited and all we do
+	  // is gradually rename the input until it's called 'geometry'.
+	  //
+	  // This also aims to allocate as few resources as possible: just a
+	  // few numbers and booleans, rather than any temporary arrays as would
+	  // be required with the normalization approach.
+	  for (i = 0; i < stop; i++) {
+
+	    geometryMaybeCollection = (isFeatureCollection ? layer.features[i].geometry :
+	        (isFeature ? layer.geometry : layer));
+	    isGeometryCollection = geometryMaybeCollection.type === 'GeometryCollection';
+	    stopG = isGeometryCollection ? geometryMaybeCollection.geometries.length : 1;
+
+	    for (g = 0; g < stopG; g++) {
+
+	      geometry = isGeometryCollection ?
+	          geometryMaybeCollection.geometries[g] : geometryMaybeCollection;
+	      coords = geometry.coordinates;
+
+	      wrapShrink = (excludeWrapCoord &&
+	        (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon')) ?
+	        1 : 0;
+
+	      if (geometry.type === 'Point') {
+	        callback(coords);
+	      } else if (geometry.type === 'LineString' || geometry.type === 'MultiPoint') {
+	        for (j = 0; j < coords.length; j++) callback(coords[j]);
+	      } else if (geometry.type === 'Polygon' || geometry.type === 'MultiLineString') {
+	        for (j = 0; j < coords.length; j++)
+	          for (k = 0; k < coords[j].length - wrapShrink; k++)
+	            callback(coords[j][k]);
+	      } else if (geometry.type === 'MultiPolygon') {
+	        for (j = 0; j < coords.length; j++)
+	          for (k = 0; k < coords[j].length; k++)
+	            for (l = 0; l < coords[j][k].length - wrapShrink; l++)
+	              callback(coords[j][k][l]);
+	      } else {
+	        throw new Error('Unknown Geometry Type');
+	      }
+	    }
+	  }
+	}
+	module.exports.coordEach = coordEach;
+
+	/**
+	 * Lazily reduce coordinates in any GeoJSON object into a single value,
+	 * similar to how Array.reduce works. However, in this case we lazily run
+	 * the reduction, so an array of all coordinates is unnecessary.
+	 *
+	 * @param {Object} layer any GeoJSON object
+	 * @param {Function} callback a method that takes (memo, value) and returns
+	 * a new memo
+	 * @param {boolean=} excludeWrapCoord whether or not to include
+	 * the final coordinate of LinearRings that wraps the ring in its iteration.
+	 * @param {*} memo the starting value of memo: can be any type.
+	 */
+	function coordReduce(layer, callback, memo, excludeWrapCoord) {
+	  coordEach(layer, function(coord) {
+	    memo = callback(memo, coord);
+	  }, excludeWrapCoord);
+	  return memo;
+	}
+	module.exports.coordReduce = coordReduce;
+
+	/**
+	 * Lazily iterate over property objects in any GeoJSON object, similar to
+	 * Array.forEach.
+	 *
+	 * @param {Object} layer any GeoJSON object
+	 * @param {Function} callback a method that takes (value)
+	 * @example
+	 * var point = { type: 'Feature', geometry: null, properties: { foo: 1 } };
+	 * propEach(point, function(props) {
+	 *   // props is equal to { foo: 1}
+	 * });
+	 */
+	function propEach(layer, callback) {
+	  var i;
+	  switch (layer.type) {
+	      case 'FeatureCollection':
+	        features = layer.features;
+	        for (i = 0; i < layer.features.length; i++) {
+	            callback(layer.features[i].properties);
+	        }
+	        break;
+	      case 'Feature':
+	        callback(layer.properties);
+	        break;
+	  }
+	}
+	module.exports.propEach = propEach;
+
+	/**
+	 * Lazily reduce properties in any GeoJSON object into a single value,
+	 * similar to how Array.reduce works. However, in this case we lazily run
+	 * the reduction, so an array of all properties is unnecessary.
+	 *
+	 * @param {Object} layer any GeoJSON object
+	 * @param {Function} callback a method that takes (memo, coord) and returns
+	 * a new memo
+	 * @param {*} memo the starting value of memo: can be any type.
+	 */
+	function propReduce(layer, callback, memo) {
+	  propEach(layer, function(prop) {
+	    memo = callback(memo, prop);
+	  });
+	  return memo;
+	}
+	module.exports.propReduce = propReduce;
+
+
+/***/ }),
+/* 479 */
+/***/ (function(module, exports) {
+
+	/**
+	 * Takes one or more {@link Feature|Features} and creates a {@link FeatureCollection}
+	 *
+	 * @module turf/featurecollection
+	 * @category helper
+	 * @param {Feature} features input Features
+	 * @returns {FeatureCollection} a FeatureCollection of input features
+	 * @example
+	 * var features = [
+	 *  turf.point([-75.343, 39.984], {name: 'Location A'}),
+	 *  turf.point([-75.833, 39.284], {name: 'Location B'}),
+	 *  turf.point([-75.534, 39.123], {name: 'Location C'})
+	 * ];
+	 *
+	 * var fc = turf.featurecollection(features);
+	 *
+	 * //=fc
+	 */
+	module.exports = function(features){
+	  return {
+	    type: "FeatureCollection",
+	    features: features
+	  };
+	};
+
+
+/***/ }),
+/* 480 */
+/***/ (function(module, exports) {
+
+	// http://en.wikipedia.org/wiki/Even%E2%80%93odd_rule
+	// modified from: https://github.com/substack/point-in-polygon/blob/master/index.js
+	// which was modified from http://www.ecse.rpi.edu/Homepages/wrf/Research/Short_Notes/pnpoly.html
+
+	/**
+	 * Takes a {@link Point} feature and a {@link Polygon} feature and determines if the Point resides inside the Polygon. The Polygon can
+	 * be convex or concave. The function accepts any valid Polygon or {@link MultiPolygon}
+	 * and accounts for holes.
+	 *
+	 * @module turf/inside
+	 * @category joins
+	 * @param {Point} point a Point feature
+	 * @param {Polygon} polygon a Polygon feature
+	 * @return {Boolean} `true` if the Point is inside the Polygon; `false` if the Point is not inside the Polygon
+	 * @example
+	 * var pt1 = {
+	 *   "type": "Feature",
+	 *   "properties": {
+	 *     "marker-color": "#f00"
+	 *   },
+	 *   "geometry": {
+	 *     "type": "Point",
+	 *     "coordinates": [-111.467285, 40.75766]
+	 *   }
+	 * };
+	 * var pt2 = {
+	 *   "type": "Feature",
+	 *   "properties": {
+	 *     "marker-color": "#0f0"
+	 *   },
+	 *   "geometry": {
+	 *     "type": "Point",
+	 *     "coordinates": [-111.873779, 40.647303]
+	 *   }
+	 * };
+	 * var poly = {
+	 *   "type": "Feature",
+	 *   "properties": {},
+	 *   "geometry": {
+	 *     "type": "Polygon",
+	 *     "coordinates": [[
+	 *       [-112.074279, 40.52215],
+	 *       [-112.074279, 40.853293],
+	 *       [-111.610107, 40.853293],
+	 *       [-111.610107, 40.52215],
+	 *       [-112.074279, 40.52215]
+	 *     ]]
+	 *   }
+	 * };
+	 *
+	 * var features = {
+	 *   "type": "FeatureCollection",
+	 *   "features": [pt1, pt2, poly]
+	 * };
+	 *
+	 * //=features
+	 *
+	 * var isInside1 = turf.inside(pt1, poly);
+	 * //=isInside1
+	 *
+	 * var isInside2 = turf.inside(pt2, poly);
+	 * //=isInside2
+	 */
+	module.exports = function(point, polygon) {
+	  var polys = polygon.geometry.coordinates;
+	  var pt = [point.geometry.coordinates[0], point.geometry.coordinates[1]];
+	  // normalize to multipolygon
+	  if(polygon.geometry.type === 'Polygon') polys = [polys];
+
+	  var insidePoly = false;
+	  var i = 0;
+	  while (i < polys.length && !insidePoly) {
+	    // check if it is in the outer ring first
+	    if(inRing(pt, polys[i][0])) {
+	      var inHole = false;
+	      var k = 1;
+	      // check for the point in any of the holes
+	      while(k < polys[i].length && !inHole) {
+	        if(inRing(pt, polys[i][k])) {
+	          inHole = true;
+	        }
+	        k++;
+	      }
+	      if(!inHole) insidePoly = true;
+	    }
+	    i++;
+	  }
+	  return insidePoly;
+	}
+
+	// pt is [x,y] and ring is [[x,y], [x,y],..]
+	function inRing (pt, ring) {
+	  var isInside = false;
+	  for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+	    var xi = ring[i][0], yi = ring[i][1];
+	    var xj = ring[j][0], yj = ring[j][1];
+	    
+	    var intersect = ((yi > pt[1]) != (yj > pt[1]))
+	        && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi);
+	    if (intersect) isInside = !isInside;
+	  }
+	  return isInside;
+	}
+
+
+
+/***/ }),
+/* 481 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	var random = __webpack_require__(446);
+
+	/**
+	 * Generates random {@link GeoJSON} data, including {@link Point|Points} and {@link Polygon|Polygons}, for testing
+	 * and experimentation.
+	 *
+	 * @module turf/random
+	 * @category data
+	 * @param {String} [type='point'] type of features desired: 'points' or 'polygons'
+	 * @param {Number} [count=1] how many geometries should be generated.
+	 * @param {Object} options options relevant to the feature desired. Can include:
+	 * @param {Array<number>} options.bbox a bounding box inside of which geometries
+	 * are placed. In the case of {@link Point} features, they are guaranteed to be within this bounds,
+	 * while {@link Polygon} features have their centroid within the bounds.
+	 * @param {Number} [options.num_vertices=10] options.vertices the number of vertices added
+	 * to polygon features.
+	 * @param {Number} [options.max_radial_length=10] the total number of decimal
+	 * degrees longitude or latitude that a polygon can extent outwards to
+	 * from its center.
+	 * @return {FeatureCollection} generated random features
+	 * @example
+	 * var points = turf.random('points', 100, {
+	 *   bbox: [-70, 40, -60, 60]
+	 * });
+	 *
+	 * //=points
+	 *
+	 * var polygons = turf.random('polygons', 4, {
+	 *   bbox: [-70, 40, -60, 60]
+	 * });
+	 *
+	 * //=polygons
+	 */
+	module.exports = function(type, count, options) {
+	    options = options || {};
+	    count = count || 1;
+	    switch (type) {
+	        case 'point':
+	        case 'points':
+	        case undefined:
+	            return random.point(count, options.bbox);
+	        case 'polygon':
+	        case 'polygons':
+	            return random.polygon(
+	                count,
+	                options.num_vertices,
+	                options.max_radial_length,
+	                options.bbox);
+	        default:
+	            throw new Error('Unknown type given: valid options are points and polygons');
+	    }
+	};
+
+
+/***/ }),
+/* 482 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	'use strict';
+
 	Object.defineProperty(exports, "__esModule", {
 	        value: true
 	});
@@ -111971,12 +112548,12 @@
 	function MapContainer() {}
 
 /***/ }),
-/* 477 */
+/* 483 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-scale/ Version 1.0.5. Copyright 2017 Mike Bostock.
 	(function (global, factory) {
-		 true ? factory(exports, __webpack_require__(478), __webpack_require__(479), __webpack_require__(480), __webpack_require__(482), __webpack_require__(483), __webpack_require__(484), __webpack_require__(481)) :
+		 true ? factory(exports, __webpack_require__(484), __webpack_require__(485), __webpack_require__(486), __webpack_require__(488), __webpack_require__(489), __webpack_require__(490), __webpack_require__(487)) :
 		typeof define === 'function' && define.amd ? define(['exports', 'd3-array', 'd3-collection', 'd3-interpolate', 'd3-format', 'd3-time', 'd3-time-format', 'd3-color'], factory) :
 		(factory((global.d3 = global.d3 || {}),global.d3,global.d3,global.d3,global.d3,global.d3,global.d3,global.d3));
 	}(this, (function (exports,d3Array,d3Collection,d3Interpolate,d3Format,d3Time,d3TimeFormat,d3Color) { 'use strict';
@@ -112880,7 +113457,7 @@
 
 
 /***/ }),
-/* 478 */
+/* 484 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-array/ Version 1.2.0. Copyright 2017 Mike Bostock.
@@ -113475,7 +114052,7 @@
 
 
 /***/ }),
-/* 479 */
+/* 485 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-collection/ Version 1.0.3. Copyright 2017 Mike Bostock.
@@ -113698,12 +114275,12 @@
 
 
 /***/ }),
-/* 480 */
+/* 486 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-interpolate/ Version 1.1.4. Copyright 2017 Mike Bostock.
 	(function (global, factory) {
-		 true ? factory(exports, __webpack_require__(481)) :
+		 true ? factory(exports, __webpack_require__(487)) :
 		typeof define === 'function' && define.amd ? define(['exports', 'd3-color'], factory) :
 		(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Color) { 'use strict';
@@ -114249,7 +114826,7 @@
 
 
 /***/ }),
-/* 481 */
+/* 487 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-color/ Version 1.0.3. Copyright 2017 Mike Bostock.
@@ -114778,7 +115355,7 @@
 
 
 /***/ }),
-/* 482 */
+/* 488 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-format/ Version 1.2.0. Copyright 2017 Mike Bostock.
@@ -115115,7 +115692,7 @@
 
 
 /***/ }),
-/* 483 */
+/* 489 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-time/ Version 1.0.6. Copyright 2017 Mike Bostock.
@@ -115499,12 +116076,12 @@
 
 
 /***/ }),
-/* 484 */
+/* 490 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-time-format/ Version 2.0.5. Copyright 2017 Mike Bostock.
 	(function (global, factory) {
-		 true ? factory(exports, __webpack_require__(483)) :
+		 true ? factory(exports, __webpack_require__(489)) :
 		typeof define === 'function' && define.amd ? define(['exports', 'd3-time'], factory) :
 		(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Time) { 'use strict';

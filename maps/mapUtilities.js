@@ -10,6 +10,7 @@
 import graphlib from "graphlib";
 import utility from '../utility-functions';
 import turf from '@turf/turf';
+import randomPointsOnPolygon from 'random-points-on-polygon';
 
 var _ = {};
 
@@ -70,6 +71,15 @@ _.clusterize = function(data,clusterDist,threshold,labelMap){
     
     return featureCollection;
 
+}
+
+_.getRandomPoints = function(polygon,numberOfPoints){
+
+
+ 
+var points = randomPointsOnPolygon(numberOfPoints, polygon);
+
+return points;
 }
 
 _.getPolygonCentroid = function(coords){
