@@ -35,10 +35,10 @@
 .label{
     pointer-events:none;
     font-align : center;
-    font-size:90%;
-    color : black;
+    font-size:120%;
+    color : yellow;
     text-align: justify;
-vertical-align: top; 
+    vertical-align: top; 
 
 }
 

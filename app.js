@@ -14,7 +14,8 @@ import dhis2Map from './maps/map';
 import mUtility from './maps/mapUtilities';
 import {AlertPopUp} from './components/components';
 import utility from './utility-functions';
-import {scaleLinear} from "d3-scale";
+//import {scaleLinear} from "d3-scale";
+import d3 from "d3";
 
 var map,heatmap;
 var api = new dhis2API();
@@ -24,7 +25,9 @@ var currentSelectionOUUIDs = "";
 var currentSelectionOUMap = [];
 var currentSelectionOUUID =""
 var currentSelectionOULevel ="2"
+var currentSelectionOUName ="India"
 var currentOUPolygonFeatures;
+var info;
 
 $('document').ready(function(){
 
@@ -41,10 +44,35 @@ $('document').ready(function(){
         map.init("mapid",[0,0],5);
         heatmap.init("map-heat",[0,0],5);
 
-        setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID);
+        map.getMap().on('dblclick',        function (e) {debugger; console.log('dblclick'); });
+
+        addInfo();
+
+        info.update({"level":currentSelectionOULevel,"facility" : currentSelectionOUName});
+
+        setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID,null,currentSelectionOUName);
         setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);
         //setBoundaryLayers(heatmap,3,currentSelectionOUUID,1);
         
+    }
+    function addInfo(){
+        info = L.control({position : "bottomleft"});
+
+        info.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'info');
+            this.update();
+            return this._div;
+        };
+
+        info.update = function (props) {
+            if (!props){return}
+
+            this._div.innerHTML = '<h2>Location : '+props.facility+'</h2>';
+        };
+
+
+        info.addTo(map.getMap());
+
     }
     function fetchMetadata(){
 
@@ -54,43 +82,43 @@ $('document').ready(function(){
             contentType: "application/json",
             url: "../../organisationUnits?fields=id,name&filter=level:eq:1&paging=false"
         },function(error,response){
-                                   if (error){
+            if (error){
 
-                                   }else{
-                                       currentSelectionOUUID = response.organisationUnits[0].id;
-                                          fetchDEs();
- 
-                                   }
-                                  })
-
-function fetchDEs(){
-    ajax.request({
-        type: "GET",
-        async: true,
-        contentType: "application/json",
-        url: "../..//dataElements?fields=id,name&filter=domainType:eq:AGGREGATE&paging=false"
-    },function(error,response){
-        if (error){
-
-        }else{
-
-            var select = document.getElementById("selectDE");
-            var options = response.dataElements;
-            for(var i = 0; i < options.length; i++) {
-                var opt = options[i];
-                var el = document.createElement("option");
-                el.textContent = opt.name;
-                el.value = opt.id;
-                select.appendChild(el);
+            }else{
+                currentSelectionOUUID = response.organisationUnits[0].id;
+                fetchDEs();
+                
             }
-            
-            currentDiseaseDeUID = options[0].id;
-            init();
+        })
+
+        function fetchDEs(){
+            ajax.request({
+                type: "GET",
+                async: true,
+                contentType: "application/json",
+                url: "../..//dataElements?fields=id,name&filter=domainType:eq:AGGREGATE&paging=false"
+            },function(error,response){
+                if (error){
+
+                }else{
+
+                    var select = document.getElementById("selectDE");
+                    var options = response.dataElements;
+                    for(var i = 0; i < options.length; i++) {
+                        var opt = options[i];
+                        var el = document.createElement("option");
+                        el.textContent = opt.name;
+                        el.value = opt.id;
+                        select.appendChild(el);
+                    }
+                    
+                    currentDiseaseDeUID = options[0].id;
+                    init();
+                }
+            })
+
+
         }
-    })
-
-
-}
 
     }
 
@@ -100,8 +128,10 @@ function fetchDEs(){
 window.reset = function(){
     clearData();
     currentSelectionOUUID ="WljvC4Ev45Y"
-    currentSelectionOULevel ="2"
-    setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID);
+    currentSelectionOULevel ="2";
+    currentSelectionOUName = "India";
+
+    setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID,null,currentSelectionOUName);
     setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);
 
 }
@@ -109,7 +139,7 @@ window.deSelected = function(elem){
 
     currentDiseaseDeUID = elem.selectedOptions[0].value;
     clearData();
-    setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID);
+    setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID,null,currentSelectionOUName);
     setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);
 
 }
@@ -126,10 +156,9 @@ function clearData(){
     
 }
 
-
 function drillDown(e){
     
-    if (currentSelectionOULevel == 3){
+    if (currentSelectionOULevel == 5){
         showRandomPoints(e.target.feature.properties.ouUID,e.target.feature.properties.size);
         return;        
     }
@@ -139,7 +168,9 @@ function drillDown(e){
 
     currentSelectionOULevel =e.target.feature.properties.level+1;
     currentSelectionOUUID =e.target.feature.properties.ouUID;
-    setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID); 
+    currentSelectionOUName =e.target.feature.properties.name;
+
+    setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID,null,currentSelectionOUName); 
     setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);   
     
 }
@@ -176,10 +207,6 @@ function showRandomPoints(ouUID,value){
     }
 
     map.addGeoJson(randomPoints,pointToLayer,null,onEachDot);
-    
-   
-
-
 }
 
 
@@ -385,7 +412,7 @@ function addDiseaseToLayer(_data){
             className:'label',
             html:'<i className="label">'+feature.properties.size+'</i>',
             iconSize :null,
-            iconAnchor: [14,8]
+            iconAnchor: [14,0]
         })
 
         return L.marker(latlng,{
@@ -404,8 +431,10 @@ function zoomToFeature(e) {
     map.getMap().fitBounds(e.target.getBounds());
 }
 
-function setBoundaryLayers(map,level,parent,parentLevel){
+function setBoundaryLayers(map,level,parent,parentLevel,facility){
 
+    if (map!=heatmap)
+    info.update({"level":level,"facility" : facility});
 
     var style = { color: "black",
                   opacity: 0.75,
@@ -480,7 +509,7 @@ function setBoundaryLayers(map,level,parent,parentLevel){
             layer.on({
                 mouseover: highlightOU,
                 mouseout: resetOUHighlight,
-              //  click : zoomToFeature
+                //  click : zoomToFeature
             });
 
         }
@@ -491,7 +520,7 @@ function setBoundaryLayers(map,level,parent,parentLevel){
         //   map.addGeoJson(geoJson,null,style,onEachOU)
         map.getMap().fitBounds( map.addGeoJson(geoJson.geoJsonPolygonFeatures,null,style,onEachOU).getBounds());
 
-        if (map != heatmap){
+        if (map == heatmap){
             addOULabels(geoJson.geoJsonLabelFeatures)
         }
 
@@ -514,7 +543,7 @@ function setBoundaryLayers(map,level,parent,parentLevel){
                 className:'ouLabel',
                 html:'<i className="ouLabel">'+name+'</i>',
                 iconSize :null,
-                iconAnchor: [15,25]
+                iconAnchor: [15,8]
             })
 
             return L.marker(latlng,{
@@ -537,9 +566,20 @@ function setBoundaryLayers(map,level,parent,parentLevel){
                 var coords = JSON.parse(ous[key].coordinates);
                 //reverseCoordinates(coords[0]);
 
-                var co = coords[getIndex(coords)];
+                var co;
+                if (ous[0].level == 2){
+                    co = coords[getIndex(coords)];
+                }else{
+                    if (coords.length ==1){
+                        co = coords;
+                    }else{
+                        co = coords[getIndex(coords)];                     
+                    }
+                    // co.push(coords);
+                }
                 var centroid = mUtility.getPolygonCentroid(co);
                 centroid.properties.ouUID =ous[key].id;
+                centroid.properties.name =ous[key].name;
                 centroid.properties.layerId ="ou";
 
                 orgUnitUIDWiseCentroidMap[ous[key].id] = centroid;
@@ -552,6 +592,7 @@ function setBoundaryLayers(map,level,parent,parentLevel){
                     {
                         "ouUID":ous[key].id,
                         "level" : ous[key].level,
+                        "name" : ous[key].name,
                         layerId : "ou"
                     },
                     "geometry": {
@@ -597,7 +638,7 @@ function getRadius(y,maxmin) {
 
 
 function addLegend(map,label){
-    var legend = L.control({position: 'topleft'});
+    var legend = L.control({position: 'bottomleft'});
 
     legend.onAdd = function (map) {
 
@@ -610,5 +651,97 @@ function addLegend(map,label){
     };
 
     legend.addTo(map);
+
+}
+
+d3HeatMap();
+
+function d3HeatMap(){
+
+var itemSize = 22,
+      cellSize = itemSize - 1,
+      margin = {top: 120, right: 20, bottom: 20, left: 110};
+      
+  var width = 750 - margin.right - margin.left,
+      height = 300 - margin.top - margin.bottom;
+
+  var formatDate = d3.time.format("%Y-%m-%d");
+
+  d3.csv('data.csv', function ( response ) {
+
+    var data = response.map(function( item ) {
+        var newItem = {};
+        newItem.country = item.x;
+        newItem.product = item.y;
+        newItem.value = item.value;
+
+        return newItem;
+    })
+
+    var x_elements = d3.set(data.map(function( item ) { return item.product; } )).values(),
+        y_elements = d3.set(data.map(function( item ) { return item.country; } )).values();
+
+    var xScale = d3.scale.ordinal()
+        .domain(x_elements)
+        .rangeBands([0, x_elements.length * itemSize]);
+
+    var xAxis = d3.svg.axis()
+        .scale(xScale)
+        .tickFormat(function (d) {
+            return d;
+        })
+        .orient("top");
+
+    var yScale = d3.scale.ordinal()
+        .domain(y_elements)
+        .rangeBands([0, y_elements.length * itemSize]);
+
+    var yAxis = d3.svg.axis()
+        .scale(yScale)
+        .tickFormat(function (d) {
+            return d;
+        })
+        .orient("left");
+
+    var colorScale = d3.scale.threshold()
+        .domain([0.85, 1])
+        .range(["#2980B9", "#E67E22", "#27AE60", "#27AE60"]);
+
+    var svg = d3.select('.heatmap')
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    var cells = svg.selectAll('rect')
+        .data(data)
+        .enter().append('g').append('rect')
+        .attr('class', 'cell')
+        .attr('width', cellSize)
+        .attr('height', cellSize)
+        .attr('y', function(d) { return yScale(d.country); })
+        .attr('x', function(d) { return xScale(d.product); })
+        .attr('fill', function(d) { return colorScale(d.value); });
+
+    svg.append("g")
+        .attr("class", "y axis")
+        .call(yAxis)
+        .selectAll('text')
+        .attr('font-weight', 'normal');
+
+    svg.append("g")
+        .attr("class", "x axis")
+        .call(xAxis)
+        .selectAll('text')
+        .attr('font-weight', 'normal')
+        .style("text-anchor", "start")
+        .attr("dx", ".8em")
+        .attr("dy", ".5em")
+        .attr("transform", function (d) {
+            return "rotate(-65)";
+        });
+  });
+
 
 }

@@ -77,13 +77,13 @@
     <div ng-view></div>
     <div id="mainContainer">
       <div class="hidden-print">
-        <label><h2>IDSP GIS Dashboard </h2></label></br>
+        <label><h2>IDSP GIS Dashboard </h2></label><br>
 
         Select Condition:
         <select id="selectDE" onchange="deSelected(this);">
         </select>
 
-        Period : <input type="text" id="period" value="LAST_YEAR"/>
+        Period : <input type="text" id="period" value="2017"/>
         <input class="btn-danger" type="button" value="Reset" onclick="reset();"/>
 
       </div>
@@ -107,7 +107,7 @@
       </div>
 
       <div>
-        <div id="map-heat" style="display:inline-block;float:right;height: 460px ;width:49%;"></div>
+        <div id="map-heat1" class="heatmap" style="display:inline-block;float:right;height: 460px ;width:49%;"></div>
       </div>
       
       <div id="requestStats"></div>
@@ -120,4 +120,6 @@
 
 
   </body>
+
+
 </html>
