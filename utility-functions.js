@@ -78,4 +78,17 @@ _.unshadowStringify = function(str){
 
     return JSON.parse(str);
 }
+
+_.sort = function(data,key){
+
+    var max = -1;
+   for (var i =0; i<data.length;i++){
+       if (max < data[i].value){
+           max = data[i].value;
+       }
+   }
+
+}
+
+
 module.exports = _;

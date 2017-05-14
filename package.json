@@ -34,6 +34,7 @@
     "random-points-on-polygon": "0.0.4",
     "react": "^15.4.1",
     "react-dom": "^15.4.1",
+    "sort-by": "^1.2.0",
     "turf": "^3.0.14",
     "uglify-js": "^2.8.22",
     "webpack": "^1.14.0",

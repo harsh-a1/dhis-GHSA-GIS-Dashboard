@@ -14,13 +14,16 @@ import dhis2Map from './maps/map';
 import mUtility from './maps/mapUtilities';
 import {AlertPopUp} from './components/components';
 import utility from './utility-functions';
-//import {scaleLinear} from "d3-scale";
+import {scaleLinear} from "d3-scale";
 import d3 from "d3";
+import heatmapp from "./heatmapp";
+import sortby from "sort-by";
 
 var map,heatmap;
 var api = new dhis2API();
 var orgUnitUIDWiseCentroidMap = [];
 var currentDiseaseDeUID = "";
+var currentDiseaseDeMap = [];
 var currentSelectionOUUIDs = "";
 var currentSelectionOUMap = [];
 var currentSelectionOUUID =""
@@ -28,6 +31,7 @@ var currentSelectionOULevel ="2"
 var currentSelectionOUName ="India"
 var currentOUPolygonFeatures;
 var info;
+var heatMapDEs;
 
 $('document').ready(function(){
 
@@ -42,16 +46,16 @@ $('document').ready(function(){
         heatmap = new dhis2Map();
 
         map.init("mapid",[0,0],5);
-        heatmap.init("map-heat",[0,0],5);
+       // heatmap.init("map-heat",[0,0],5);
 
-        map.getMap().on('dblclick',        function (e) {debugger; console.log('dblclick'); });
+        //map.getMap().on('dblclick',        function (e) {debugger; console.log('dblclick'); });
 
-        addInfo();
+     // addInfo();
 
-        info.update({"level":currentSelectionOULevel,"facility" : currentSelectionOUName});
+       //nfo.update({"level":currentSelectionOULevel,"facility" : currentSelectionOUName});
 
-        setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID,null,currentSelectionOUName);
-        setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);
+      setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID,null,currentSelectionOUName);
+       // setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);
         //setBoundaryLayers(heatmap,3,currentSelectionOUUID,1);
         
     }
@@ -96,24 +100,36 @@ $('document').ready(function(){
                 type: "GET",
                 async: true,
                 contentType: "application/json",
-                url: "../..//dataElements?fields=id,name&filter=domainType:eq:AGGREGATE&paging=false"
+                url: "../../dataElementGroups?paging=false&fields=id,name,dataElements[id,name]"
             },function(error,response){
                 if (error){
 
                 }else{
 
                     var select = document.getElementById("selectDE");
-                    var options = response.dataElements;
+                    var options = response.dataElementGroups;
                     for(var i = 0; i < options.length; i++) {
                         var opt = options[i];
                         var el = document.createElement("option");
                         el.textContent = opt.name;
-                        el.value = opt.id;
+                        el.value = getDEString(opt.dataElements);
+                      //  el.data = {des : getDEString(opt.dataElements)}
                         select.appendChild(el);
                     }
                     
-                    currentDiseaseDeUID = options[0].id;
+                    currentDiseaseDeUID = getDEString(opt.dataElements);
+                    
+                  
                     init();
+
+                    function getDEString(des){
+                        var result = "";
+                        for (var key in des){
+                            currentDiseaseDeMap[des[key].id] = des[key].name;
+                            result = result +des[key].id+ ";";
+                        }
+                        return result;
+                    }
                 }
             })
 
@@ -127,20 +143,35 @@ $('document').ready(function(){
 
 window.reset = function(){
     clearData();
+    currentDiseaseDeUID = heatMapDEs
     currentSelectionOUUID ="WljvC4Ev45Y"
     currentSelectionOULevel ="2";
     currentSelectionOUName = "India";
 
     setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID,null,currentSelectionOUName);
-    setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);
+   // setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);
 
 }
 window.deSelected = function(elem){
 
     currentDiseaseDeUID = elem.selectedOptions[0].value;
+    heatMapDEs = currentDiseaseDeUID;
     clearData();
     setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID,null,currentSelectionOUName);
-    setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);
+   // setBoundaryLayers(heatmap,currentSelectionOULevel,currentSelectionOUUID);
+
+}
+
+window.cellClick = function(elem,deWiseData){
+debugger
+    heatMapDEs = currentDiseaseDeUID;
+    currentDiseaseDeUID = elem.dataElement;
+    map.clearLayers("layerId","custom");
+
+  //  clearData();
+    //setBoundaryLayers(map,currentSelectionOULevel,currentSelectionOUUID,null,currentSelectionOUName);
+
+            addDiseaseToLayer(deWiseData);
 
 }
 
@@ -148,8 +179,8 @@ function clearData(){
     map.clearLayers("layerId","custom");
     map.clearLayers("layerId","ou");
 
-    heatmap.clearLayers("layerId","custom");
-    heatmap.clearLayers("layerId","ou");
+    //heatmap.clearLayers("layerId","custom");
+    //heatmap.clearLayers("layerId","ou");
 
     currentSelectionOUUIDs = [];
     currentSelectionOUMap = [];
@@ -238,9 +269,15 @@ function getData(currentSelectionOUUIDs,period){
 
         }else{
 
-            var deWiseData = utility.prepareMapGroupedById(response.dataValues,"dataElement");
-            addDiseaseToLayer(deWiseData);
-            addHeatMap(heatmap,deWiseData);
+
+         //   var dvs = utility.sort(response.dataValues,"value");
+         var dvs = response.dataValues;
+           
+            var deWiseData = utility.prepareMapGroupedById(dvs,"dataElement");
+           // addDiseaseToLayer(deWiseData);
+           // addHeatMap(heatmap,deWiseData);
+            heatmapp.d3HeatMap(deWiseData,currentDiseaseDeMap,currentSelectionOUMap);
+
         }
     })
 }
@@ -422,7 +459,7 @@ function addDiseaseToLayer(_data){
         });
     }
     map.addGeoJson(geoJsonPointFeaturesLabels,pointToLayerLabel,null,onEachLabel);
-    var spotLayer = map.addGeoJson(geoJsonPointFeatures,pointToLayer,null,onEachDot);
+  //  var spotLayer = map.addGeoJson(geoJsonPointFeatures,pointToLayer,null,onEachDot);
     //map.getMap().fitBounds(spotLayer.getBounds());
 
 }
@@ -433,8 +470,8 @@ function zoomToFeature(e) {
 
 function setBoundaryLayers(map,level,parent,parentLevel,facility){
 
-    if (map!=heatmap)
-    info.update({"level":level,"facility" : facility});
+    //if (map!=heatmap)
+   // info.update({"level":level,"facility" : facility});
 
     var style = { color: "black",
                   opacity: 0.75,
@@ -520,7 +557,8 @@ function setBoundaryLayers(map,level,parent,parentLevel,facility){
         //   map.addGeoJson(geoJson,null,style,onEachOU)
         map.getMap().fitBounds( map.addGeoJson(geoJson.geoJsonPolygonFeatures,null,style,onEachOU).getBounds());
 
-        if (map == heatmap){
+        //if (map == heatmap)
+        {
             addOULabels(geoJson.geoJsonLabelFeatures)
         }
 
@@ -543,7 +581,7 @@ function setBoundaryLayers(map,level,parent,parentLevel,facility){
                 className:'ouLabel',
                 html:'<i className="ouLabel">'+name+'</i>',
                 iconSize :null,
-                iconAnchor: [15,8]
+                iconAnchor: [0,0]
             })
 
             return L.marker(latlng,{
@@ -654,94 +692,3 @@ function addLegend(map,label){
 
 }
 
-d3HeatMap();
-
-function d3HeatMap(){
-
-var itemSize = 22,
-      cellSize = itemSize - 1,
-      margin = {top: 120, right: 20, bottom: 20, left: 110};
-      
-  var width = 750 - margin.right - margin.left,
-      height = 300 - margin.top - margin.bottom;
-
-  var formatDate = d3.time.format("%Y-%m-%d");
-
-  d3.csv('data.csv', function ( response ) {
-
-    var data = response.map(function( item ) {
-        var newItem = {};
-        newItem.country = item.x;
-        newItem.product = item.y;
-        newItem.value = item.value;
-
-        return newItem;
-    })
-
-    var x_elements = d3.set(data.map(function( item ) { return item.product; } )).values(),
-        y_elements = d3.set(data.map(function( item ) { return item.country; } )).values();
-
-    var xScale = d3.scale.ordinal()
-        .domain(x_elements)
-        .rangeBands([0, x_elements.length * itemSize]);
-
-    var xAxis = d3.svg.axis()
-        .scale(xScale)
-        .tickFormat(function (d) {
-            return d;
-        })
-        .orient("top");
-
-    var yScale = d3.scale.ordinal()
-        .domain(y_elements)
-        .rangeBands([0, y_elements.length * itemSize]);
-
-    var yAxis = d3.svg.axis()
-        .scale(yScale)
-        .tickFormat(function (d) {
-            return d;
-        })
-        .orient("left");
-
-    var colorScale = d3.scale.threshold()
-        .domain([0.85, 1])
-        .range(["#2980B9", "#E67E22", "#27AE60", "#27AE60"]);
-
-    var svg = d3.select('.heatmap')
-        .append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-        .append("g")
-        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-    var cells = svg.selectAll('rect')
-        .data(data)
-        .enter().append('g').append('rect')
-        .attr('class', 'cell')
-        .attr('width', cellSize)
-        .attr('height', cellSize)
-        .attr('y', function(d) { return yScale(d.country); })
-        .attr('x', function(d) { return xScale(d.product); })
-        .attr('fill', function(d) { return colorScale(d.value); });
-
-    svg.append("g")
-        .attr("class", "y axis")
-        .call(yAxis)
-        .selectAll('text')
-        .attr('font-weight', 'normal');
-
-    svg.append("g")
-        .attr("class", "x axis")
-        .call(xAxis)
-        .selectAll('text')
-        .attr('font-weight', 'normal')
-        .style("text-anchor", "start")
-        .attr("dx", ".8em")
-        .attr("dy", ".5em")
-        .attr("transform", function (d) {
-            return "rotate(-65)";
-        });
-  });
-
-
-}
