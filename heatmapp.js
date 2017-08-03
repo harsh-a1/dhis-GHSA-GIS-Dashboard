@@ -6,7 +6,7 @@ _.d3HeatMap = function(deWiseData,deMap,ouMap){
 
 var itemSize = 22,
       cellSize = itemSize - 1,
-      margin = {top: 220, right: 20, bottom: 20, left: 110};
+      margin = {top: 220, right: 20, bottom: 20, left: 150};
       
   var width = 1050 - margin.right - margin.left,
       height = 700 - margin.top - margin.bottom;

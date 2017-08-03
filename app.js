@@ -30,6 +30,7 @@ var currentSelectionOUUID =""
 var currentSelectionOULevel ="2"
 var currentSelectionOUName ="India"
 var currentOUPolygonFeatures;
+var clickedCellOrgUnit = -1;
 var info;
 var heatMapDEs;
 
@@ -45,7 +46,7 @@ $('document').ready(function(){
         map = new dhis2Map();
         heatmap = new dhis2Map();
 
-        map.init("mapid",[0,0],5);
+        map.init("mapid",[0,0],7);
        // heatmap.init("map-heat",[0,0],5);
 
         //map.getMap().on('dblclick',        function (e) {debugger; console.log('dblclick'); });
@@ -163,9 +164,10 @@ window.deSelected = function(elem){
 }
 
 window.cellClick = function(elem,deWiseData){
-debugger
+
     heatMapDEs = currentDiseaseDeUID;
     currentDiseaseDeUID = elem.dataElement;
+    clickedCellOrgUnit = elem.orgUnit;
     map.clearLayers("layerId","custom");
 
   //  clearData();
@@ -322,7 +324,7 @@ function addDiseaseToLayer(_data){
 
     for (var i=0;i<data.length;i++){
         var centroid = orgUnitUIDWiseCentroidMap[data[i].orgUnit];
-        if (centroid){
+        if (centroid && data[i].orgUnit == clickedCellOrgUnit ){
             centroid.properties.size = data[i].value;
             centroid.properties.layerId = "custom";
             centroid.properties.maxmin = maxmin;
@@ -446,10 +448,10 @@ function addDiseaseToLayer(_data){
     var pointToLayerLabel = function(feature, latlng) {
         
         var labelIcon =L.divIcon({
-            className:'label',
-            html:'<i className="label">'+feature.properties.size+'</i>',
+           // className:'label',
+            html:'<font size="3" style="color:green;">'+feature.properties.size+'</font>',
             iconSize :null,
-            iconAnchor: [14,0]
+            iconAnchor: [10,5]
         })
 
         return L.marker(latlng,{
@@ -459,7 +461,7 @@ function addDiseaseToLayer(_data){
         });
     }
     map.addGeoJson(geoJsonPointFeaturesLabels,pointToLayerLabel,null,onEachLabel);
-  //  var spotLayer = map.addGeoJson(geoJsonPointFeatures,pointToLayer,null,onEachDot);
+    //var spotLayer = map.addGeoJson(geoJsonPointFeatures,pointToLayer,null,onEachDot);
     //map.getMap().fitBounds(spotLayer.getBounds());
 
 }
@@ -559,7 +561,7 @@ function setBoundaryLayers(map,level,parent,parentLevel,facility){
 
         //if (map == heatmap)
         {
-            addOULabels(geoJson.geoJsonLabelFeatures)
+           // addOULabels(geoJson.geoJsonLabelFeatures)
         }
 
         currentOUPolygonFeatures = geoJson.geoJsonPolygonFeatures;
